@@ -1,640 +1,639 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"
-    />
-    <meta name="theme-color" content="#1a1208" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Zarra · Alba AR</title>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Zarra · Alba AR</title>
 
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <!-- A-Frame first -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Megrim&family=Nunito:wght@300;400;600;700&display=swap"
-      rel="stylesheet"
-    />
+  <!-- Custom components registered BEFORE MindAR -->
+  <script>
+    /* Forces VideoTexture to upload a new frame every render tick.
+       Required on iOS where VideoTexture.needsUpdate is not set automatically. */
+    AFRAME.registerComponent('video-texture-tick', {
+      tick: function () {
+        var mesh = this.el.getObject3D('mesh');
+        if (!mesh) return;
+        mesh.traverse(function (node) {
+          if (node.isMesh && node.material && node.material.map) {
+            node.material.map.needsUpdate = true;
+          }
+        });
+      }
+    });
+  </script>
 
-    <style>
-      :root {
-        --orange:   #E48043;
-        --olive:    #9C963A;
-        --amber:    #D9A032;
-        --sage:     #8FA38C;
-        --paper:    #FBF5E6;
-        --ink:      #2A1A0E;
-        --ink-soft: rgba(42, 26, 14, 0.6);
-        --bg:       #1a1208;
+  <!-- MindAR after custom components -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
-        --font-display: 'Megrim', cursive;
-        --font-body:    'Nunito', system-ui, sans-serif;
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Megrim&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet" />
 
-        --t-fast: 180ms;
-        --t-med:  360ms;
-        --ease:   cubic-bezier(0.16, 1, 0.3, 1);
-      }
+  <style>
+    :root {
+      --orange:  #E48043;
+      --olive:   #9C963A;
+      --amber:   #D9A032;
+      --sage:    #8FA38C;
+      --paper:   #FBF5E6;
+      --ink:     #2A1A0E;
+      --muted:   rgba(42,26,14,0.6);
+      --bg:      #1a1208;
+      --fd:      'Megrim', cursive;
+      --fb:      'Nunito', system-ui, sans-serif;
+      --ease:    cubic-bezier(0.16,1,0.3,1);
+    }
 
-      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      html, body {
-        margin: 0; padding: 0;
-        height: 100%; width: 100%;
-        overflow: hidden;
-        background: #000;
-        font-family: var(--font-body);
-        color: var(--ink);
-        -webkit-font-smoothing: antialiased;
-      }
-      button {
-        appearance: none; border: 0; background: 0; cursor: pointer;
-        font: inherit; color: inherit;
-      }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: var(--fb);
+      -webkit-font-smoothing: antialiased;
+    }
+    button {
+      appearance: none; border: 0; background: none;
+      cursor: pointer; font: inherit; color: inherit;
+    }
 
-      /* =========  AR scene sits behind everything  ========= */
-      a-scene {
-        position: fixed !important;
-        inset: 0 !important;
-        z-index: 1;
-      }
+    /* AR scene is always the bottom layer */
+    a-scene {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 1;
+    }
 
-      /* =========  SCREEN SYSTEM  ========= */
-      .screen {
-        position: fixed; inset: 0;
-        z-index: 5;
-        display: grid;
-        place-items: center;
-        padding: 1.2rem;
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-        transition:
-          opacity var(--t-med) var(--ease),
-          visibility var(--t-med) var(--ease);
-      }
-      .screen.is-active {
-        opacity: 1; visibility: visible;
-        pointer-events: auto;
-      }
+    /* ── OVERLAY SYSTEM ──────────────────────────────── */
+    .ui {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.2rem;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 320ms var(--ease), visibility 320ms var(--ease);
+    }
+    .ui.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
 
-      /* =========  INTRO  ========= */
-      #screen-intro {
-        z-index: 50;
-        background:
-          radial-gradient(ellipse at 50% 38%, #3a240e 0%, #1a1208 70%),
-          var(--bg);
-        text-align: center;
-      }
-      .intro-mark {
-        font-family: var(--font-display);
-        font-size: clamp(2.6rem, 12vw, 4.2rem);
-        letter-spacing: 0.18em;
-        color: #fdf6e3;
-        margin: 0 0 0.4rem;
-      }
-      .intro-sub {
-        font-weight: 300; font-style: italic;
-        font-size: clamp(0.85rem, 3.4vw, 1rem);
-        color: rgba(253, 246, 227, 0.6);
-        margin: 0 0 2.2rem;
-        letter-spacing: 0.08em;
-      }
-      .intro-cta {
-        font-family: var(--font-display);
-        font-size: clamp(1rem, 4vw, 1.3rem);
-        letter-spacing: 0.22em;
-        color: #fdf6e3;
-        background: var(--orange);
-        padding: 0.9rem 2.2rem;
-        border-radius: 999px;
-        box-shadow: 0 8px 28px rgba(228, 128, 67, 0.35);
-      }
-      .intro-cta:active { transform: translateY(1px) scale(0.98); }
-      .intro-hint {
-        margin-top: 1.6rem;
-        font-size: 0.7rem;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: rgba(253, 246, 227, 0.4);
-      }
+    /* ── INTRO ───────────────────────────────────────── */
+    #ui-intro {
+      z-index: 50;
+      background: radial-gradient(ellipse at 50% 38%, #3a240e 0%, #1a1208 70%);
+      text-align: center;
+      gap: 0;
+    }
+    .intro-mark {
+      font-family: var(--fd);
+      font-size: clamp(2.8rem, 11vw, 4.4rem);
+      letter-spacing: 0.18em;
+      color: #fdf6e3;
+      margin: 0 0 0.3rem;
+    }
+    .intro-sub {
+      font-weight: 300; font-style: italic;
+      font-size: clamp(0.85rem, 3.5vw, 1rem);
+      letter-spacing: 0.08em;
+      color: rgba(253,246,227,0.6);
+      margin: 0 0 2rem;
+    }
+    .btn-cta {
+      font-family: var(--fd);
+      font-size: clamp(1rem, 4vw, 1.25rem);
+      letter-spacing: 0.22em;
+      color: #fdf6e3;
+      background: var(--orange);
+      padding: 0.9rem 2.2rem;
+      border-radius: 999px;
+      box-shadow: 0 8px 28px rgba(228,128,67,0.35);
+      transition: transform 150ms;
+    }
+    .btn-cta:active { transform: scale(0.97); }
+    .intro-hint {
+      margin-top: 1.4rem;
+      font-size: 0.68rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(253,246,227,0.35);
+    }
 
-      /* =========  SCAN  ========= */
-      #screen-scan { background: transparent; }
-      .scan-frame {
-        position: relative;
-        width: min(70vw, 280px);
-        aspect-ratio: 0.62;
-        border: 1px solid rgba(253, 246, 227, 0.45);
-        animation: scan-pulse 2.4s ease-in-out infinite;
-      }
-      .scan-frame::before, .scan-frame::after,
-      .scan-frame > i:nth-child(1), .scan-frame > i:nth-child(2) {
-        content: '';
-        position: absolute;
-        width: 22px; height: 22px;
-        border: 2px solid var(--orange);
-      }
-      .scan-frame::before { top: -1px; left:  -1px; border-right: 0; border-bottom: 0; }
-      .scan-frame::after  { top: -1px; right: -1px; border-left:  0; border-bottom: 0; }
-      .scan-frame > i:nth-child(1) { bottom: -1px; left:  -1px; border-right: 0; border-top: 0; }
-      .scan-frame > i:nth-child(2) { bottom: -1px; right: -1px; border-left:  0; border-top: 0; }
-      .scan-hint {
-        position: absolute;
-        top: calc(100% + 1.6rem);
-        left: 50%; transform: translateX(-50%);
-        font-family: var(--font-display);
-        font-size: clamp(1rem, 4vw, 1.3rem);
-        letter-spacing: 0.18em;
-        color: #fdf6e3;
-        white-space: nowrap;
-        text-align: center;
-      }
-      .scan-hint em {
-        display: block;
-        font-family: var(--font-body);
-        font-style: normal;
-        font-weight: 300;
-        font-size: 0.7rem;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-        color: rgba(253, 246, 227, 0.5);
-        margin-top: 0.5rem;
-      }
-      @keyframes scan-pulse {
-        0%, 100% { transform: scale(1);     opacity: 1;    }
-        50%      { transform: scale(1.035); opacity: 0.55; }
-      }
+    /* ── SCAN ─────────────────────────────────────────── */
+    #ui-scan {
+      background: transparent;
+      pointer-events: none; /* clicks pass to AR scene */
+    }
+    .scan-frame {
+      position: relative;
+      width: min(70vw, 280px);
+      aspect-ratio: 0.62;
+      border: 1px solid rgba(253,246,227,0.45);
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    .scan-frame::before, .scan-frame::after,
+    .scan-frame > i:nth-child(1), .scan-frame > i:nth-child(2) {
+      content: '';
+      position: absolute;
+      width: 22px; height: 22px;
+      border: 2px solid var(--orange);
+    }
+    .scan-frame::before { top:-1px; left:-1px;   border-right:0; border-bottom:0; }
+    .scan-frame::after  { top:-1px; right:-1px;  border-left:0;  border-bottom:0; }
+    .scan-frame > i:nth-child(1) { bottom:-1px; left:-1px;  border-right:0; border-top:0; }
+    .scan-frame > i:nth-child(2) { bottom:-1px; right:-1px; border-left:0;  border-top:0; }
+    .scan-label {
+      position: absolute;
+      top: calc(100% + 1.4rem);
+      left: 50%; transform: translateX(-50%);
+      font-family: var(--fd);
+      font-size: clamp(1rem, 4vw, 1.25rem);
+      letter-spacing: 0.18em;
+      color: #fdf6e3;
+      white-space: nowrap;
+      text-align: center;
+    }
+    .scan-label em {
+      display: block;
+      font-family: var(--fb);
+      font-style: normal; font-weight: 300;
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(253,246,227,0.5);
+      margin-top: 0.4rem;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1;   transform:scale(1); }
+      50%      { opacity:0.5; transform:scale(1.03); }
+    }
 
-      /* =========  DETECTED PROMPT  ========= */
-      #screen-detected { background: rgba(10, 7, 3, 0.45); }
-      .prompt-card {
-        background: var(--paper);
-        border-radius: 18px;
-        padding: 1.8rem 1.6rem 1.4rem;
-        width: min(86vw, 320px);
-        text-align: center;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
-      }
-      .prompt-eyebrow {
-        font-size: 0.66rem;
-        letter-spacing: 0.32em;
-        text-transform: uppercase;
-        color: var(--ink-soft);
-        margin: 0 0 0.9rem;
-      }
-      .prompt-title {
-        font-family: var(--font-display);
-        font-size: clamp(2rem, 8vw, 2.6rem);
-        letter-spacing: 0.08em;
-        margin: 0 0 0.5rem;
-      }
-      .prompt-sub {
-        font-size: 0.92rem;
-        line-height: 1.45;
-        color: var(--ink-soft);
-        margin: 0 0 1.4rem;
-      }
-      .prompt-cta {
-        display: block;
-        width: 100%;
-        padding: 0.85rem 1rem;
-        font-family: var(--font-display);
-        font-size: 1rem;
-        letter-spacing: 0.2em;
-        color: #fdf6e3;
-        background: var(--orange);
-        border-radius: 999px;
-      }
-      .prompt-cta:active { transform: translateY(1px) scale(0.98); }
-      .prompt-tag {
-        margin-top: 1rem;
-        font-size: 0.62rem;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: rgba(42, 26, 14, 0.35);
-      }
+    /* ── DETECTED ─────────────────────────────────────── */
+    #ui-detected { background: rgba(0,0,0,0.5); }
+    .det-card {
+      background: var(--paper);
+      border-radius: 18px;
+      padding: 1.8rem 1.6rem 1.4rem;
+      width: min(86vw, 320px);
+      text-align: center;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+    }
+    .det-eyebrow {
+      font-size: 0.66rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.8rem;
+    }
+    .det-title {
+      font-family: var(--fd);
+      font-size: clamp(2rem, 8vw, 2.6rem);
+      letter-spacing: 0.08em;
+      color: var(--ink);
+      margin: 0 0 0.4rem;
+    }
+    .det-sub {
+      font-size: 0.9rem;
+      line-height: 1.45;
+      color: var(--muted);
+      margin: 0 0 1.3rem;
+    }
 
-      /* =========  VALLEY (FULLSCREEN VIDEO)  ========= */
-      #screen-valley {
-        background: #000;
-        padding: 0;
-      }
-      .valley-video {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        background: #000;
-      }
-      .valley-hint {
-        position: absolute;
-        bottom: calc(env(safe-area-inset-bottom, 0) + 1.6rem);
-        left: 50%;
-        transform: translateX(-50%);
-        font-family: var(--font-display);
-        font-size: clamp(0.95rem, 3.8vw, 1.2rem);
-        letter-spacing: 0.22em;
-        color: #fdf6e3;
-        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
-        animation: valley-pulse 2s ease-in-out infinite;
-        pointer-events: none;
-      }
-      @keyframes valley-pulse {
-        0%, 100% { opacity: 0.65; }
-        50%      { opacity: 1;    }
-      }
+    /* ── VALLEY HINT (sits over AR video) ────────────── */
+    #ui-valley {
+      background: transparent;
+      justify-content: flex-end;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0) + 2rem);
+      pointer-events: none;
+    }
+    #ui-valley.active { pointer-events: auto; }
+    .valley-hint {
+      font-family: var(--fd);
+      font-size: clamp(0.9rem, 3.5vw, 1.1rem);
+      letter-spacing: 0.22em;
+      color: #fdf6e3;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+      animation: pulse 2s ease-in-out infinite;
+    }
 
-      /* =========  CARDS  ========= */
-      #screen-cards {
-        background: linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0.85));
-        place-items: stretch;
-        padding: 0;
-      }
-      .card-stage {
-        position: relative;
-        width: 100%; height: 100%;
-        display: grid;
-        place-items: center;
-      }
-      .card {
-        position: absolute;
-        width: min(86vw, 340px);
-        background: var(--paper);
-        border-radius: 22px;
-        padding: 1.4rem 1.4rem 1.6rem;
-        text-align: center;
-        opacity: 0;
-        transform: translateY(40px) scale(0.94);
-        transition:
-          opacity var(--t-med) var(--ease),
-          transform var(--t-med) var(--ease);
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
-      }
-      .card.is-current {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-      .card.is-past {
-        opacity: 0;
-        transform: translateY(-30px) scale(0.94);
-      }
-      .card[data-color="orange"] { border-top: 4px solid var(--orange); }
-      .card[data-color="olive"]  { border-top: 4px solid var(--olive); }
-      .card[data-color="amber"]  { border-top: 4px solid var(--amber); }
-      .card[data-color="sage"]   { border-top: 4px solid var(--sage); }
-      .card-art {
-        width: 60%;
-        margin: 0 auto 0.9rem;
-        aspect-ratio: 1;
-        display: grid;
-        place-items: center;
-      }
-      .card-art img {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-        display: block;
-      }
-      .card-meta {
-        font-size: 0.66rem;
-        letter-spacing: 0.26em;
-        text-transform: uppercase;
-        color: var(--ink-soft);
-        margin: 0 0 0.5rem;
-      }
-      .card-title {
-        font-family: var(--font-display);
-        font-size: clamp(1.8rem, 7vw, 2.4rem);
-        letter-spacing: 0.1em;
-        margin: 0 0 0.5rem;
-      }
-      .card-desc {
-        font-size: 0.92rem;
-        line-height: 1.45;
-        color: var(--ink-soft);
-        margin: 0;
-      }
-      .card-tap-hint {
-        position: absolute;
-        bottom: calc(env(safe-area-inset-bottom, 0) + 1.2rem);
-        left: 50%; transform: translateX(-50%);
-        font-size: 0.66rem;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: rgba(253, 246, 227, 0.55);
-      }
-      .card-progress {
-        position: absolute;
-        top: calc(env(safe-area-inset-top, 0) + 1.2rem);
-        left: 50%; transform: translateX(-50%);
-        display: flex;
-        gap: 0.4rem;
-      }
-      .card-progress .dot {
-        width: 6px; height: 6px;
-        border-radius: 50%;
-        background: rgba(253, 246, 227, 0.3);
-      }
-      .card-progress .dot.is-on { background: var(--orange); }
+    /* ── CARDS ───────────────────────────────────────── */
+    #ui-cards {
+      background: rgba(0,0,0,0.6);
+      padding: 0;
+      align-items: stretch;
+    }
+    .cards-progress {
+      position: absolute;
+      top: calc(env(safe-area-inset-top,0) + 1rem);
+      left: 50%; transform: translateX(-50%);
+      display: flex; gap: 0.4rem; z-index: 1;
+    }
+    .cards-progress .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(253,246,227,0.3);
+      transition: background 200ms;
+    }
+    .cards-progress .dot.on { background: var(--orange); }
+    .cards-stage {
+      position: relative;
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card {
+      position: absolute;
+      width: min(86vw, 340px);
+      background: var(--paper);
+      border-radius: 22px;
+      padding: 1.4rem 1.4rem 1.6rem;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(40px) scale(0.94);
+      transition: opacity 320ms var(--ease), transform 320ms var(--ease);
+      box-shadow: 0 28px 70px rgba(0,0,0,0.45);
+    }
+    .card.is-current { opacity: 1; transform: none; }
+    .card.is-past    { opacity: 0; transform: translateY(-28px) scale(0.94); }
+    .card[data-color="orange"] { border-top: 4px solid var(--orange); }
+    .card[data-color="olive"]  { border-top: 4px solid var(--olive); }
+    .card[data-color="amber"]  { border-top: 4px solid var(--amber); }
+    .card[data-color="sage"]   { border-top: 4px solid var(--sage); }
+    .card-art {
+      width: 58%; margin: 0 auto 0.9rem;
+      aspect-ratio: 1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card-art img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .card-meta  { font-size: 0.65rem; letter-spacing: 0.26em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.4rem; }
+    .card-title { font-family: var(--fd); font-size: clamp(1.8rem,7vw,2.4rem); letter-spacing: 0.1em; color: var(--ink); margin: 0 0 0.4rem; }
+    .card-desc  { font-size: 0.9rem; line-height: 1.45; color: var(--muted); margin: 0; }
+    .cards-tap  {
+      position: absolute;
+      bottom: calc(env(safe-area-inset-bottom,0) + 1.2rem);
+      left: 50%; transform: translateX(-50%);
+      font-size: 0.65rem; letter-spacing: 0.22em;
+      text-transform: uppercase; color: rgba(253,246,227,0.5);
+    }
 
-      /* =========  COMMUNITY  ========= */
-      #screen-community { background: #1a1208; }
-      .popup {
-        background: var(--paper);
-        border-radius: 22px;
-        padding: 1.8rem 1.6rem 1.5rem;
-        width: min(86vw, 320px);
-        text-align: center;
-      }
-      .popup-num {
-        font-family: var(--font-display);
-        font-size: clamp(2.6rem, 11vw, 3.4rem);
-        color: var(--orange);
-        margin: 0;
-      }
-      .popup-line {
-        font-size: 0.88rem;
-        color: var(--ink-soft);
-        margin: 0.3rem 0 1rem;
-      }
-      .popup-title {
-        font-family: var(--font-display);
-        font-size: clamp(1.6rem, 6.5vw, 2rem);
-        letter-spacing: 0.08em;
-        margin: 0 0 1.2rem;
-      }
-      .popup-cta {
-        display: block;
-        width: 100%;
-        padding: 0.85rem 1rem;
-        font-family: var(--font-display);
-        font-size: 1rem;
-        letter-spacing: 0.2em;
-        color: #fdf6e3;
-        background: var(--orange);
-        border-radius: 999px;
-        margin-bottom: 0.7rem;
-      }
-      .popup-dismiss {
-        width: 100%;
-        font-size: 0.78rem;
-        letter-spacing: 0.06em;
-        color: var(--ink-soft);
-        padding: 0.6rem;
-      }
+    /* ── COMMUNITY ───────────────────────────────────── */
+    #ui-community { background: var(--bg); }
+    .popup {
+      background: var(--paper);
+      border-radius: 22px;
+      padding: 1.8rem 1.6rem 1.5rem;
+      width: min(86vw, 320px);
+      text-align: center;
+    }
+    .popup-num   { font-family: var(--fd); font-size: clamp(2.4rem,10vw,3.2rem); color: var(--orange); margin: 0; }
+    .popup-line  { font-size: 0.86rem; color: var(--muted); margin: 0.3rem 0 0.9rem; }
+    .popup-title { font-family: var(--fd); font-size: clamp(1.5rem,6vw,2rem); letter-spacing: 0.08em; color: var(--ink); margin: 0 0 1.1rem; }
+    .popup-cta {
+      display: block; width: 100%; padding: 0.85rem;
+      font-family: var(--fd); font-size: 1rem; letter-spacing: 0.2em;
+      color: #fdf6e3; background: var(--orange);
+      border-radius: 999px; margin-bottom: 0.7rem;
+    }
+    .popup-dismiss { width: 100%; font-size: 0.78rem; letter-spacing: 0.06em; color: var(--muted); padding: 0.6rem; }
 
-      /* =========  GLOBAL CONTROLS  ========= */
-      .restart-btn {
-        position: fixed;
-        bottom: calc(env(safe-area-inset-bottom, 0) + 1rem);
-        left: 1rem;
-        z-index: 100;
-        width: 36px; height: 36px;
-        border-radius: 50%;
-        background: rgba(0, 0, 0, 0.4);
-        backdrop-filter: blur(6px);
-        color: rgba(253, 246, 227, 0.65);
-        font-size: 1rem;
-        display: none;
-        place-items: center;
-        border: 1px solid rgba(253, 246, 227, 0.18);
-      }
-      body:not([data-state="intro"]) .restart-btn { display: grid; }
-    </style>
-  </head>
+    /* ── RESTART BUTTON ──────────────────────────────── */
+    .restart-btn {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom,0) + 1rem);
+      left: 1rem;
+      z-index: 100;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(6px);
+      color: rgba(253,246,227,0.6);
+      font-size: 1rem;
+      display: none; place-items: center;
+      border: 1px solid rgba(253,246,227,0.18);
+    }
+    body:not([data-state="intro"]) .restart-btn { display: grid; }
+  </style>
+</head>
 
-  <body data-state="intro">
+<body data-state="intro">
 
-    <!-- =========  AR SCENE  ·  detection only, no 3D content  ========= -->
-    <a-scene
-      mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; uiError: no; uiScanning: no; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 10; warmupTolerance: 4;"
-      renderer="alpha: true; antialias: false; precision: mediump"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
-      embedded
-    >
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-      <a-entity id="target" mindar-image-target="targetIndex: 0"></a-entity>
-    </a-scene>
-
-    <!-- =========  INTRO  ========= -->
-    <section id="screen-intro" class="screen is-active">
-      <div>
-        <h1 class="intro-mark">WELCOME</h1>
-        <p class="intro-sub">Are you ready?</p>
-        <button class="intro-cta" id="start-btn">Scan to enter</button>
-        <p class="intro-hint">No app needed · Camera will open</p>
-      </div>
-    </section>
-
-    <!-- =========  SCAN  ========= -->
-    <section id="screen-scan" class="screen">
-      <div class="scan-frame">
-        <i></i><i></i>
-        <div class="scan-hint">Find the can<em>Frame it within</em></div>
-      </div>
-    </section>
-
-    <!-- =========  DETECTED  ========= -->
-    <section id="screen-detected" class="screen">
-      <div class="prompt-card">
-        <p class="prompt-eyebrow">Alba · Detected</p>
-        <h2 class="prompt-title">Welcome</h2>
-        <p class="prompt-sub">A small ceremony before the first sip.</p>
-        <button class="prompt-cta" id="detected-cta">Tap to continue</button>
-        <p class="prompt-tag">No app needed</p>
-      </div>
-    </section>
-
-    <!-- =========  VALLEY · fullscreen MP4  ========= -->
-    <section id="screen-valley" class="screen">
+  <!-- ══════════════════════════════════════════════
+       AR SCENE — runs the entire session, never restarts
+       ══════════════════════════════════════════════ -->
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; uiError: no; uiScanning: no; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 10; warmupTolerance: 5"
+    renderer="colorManagement: true; antialias: false; alpha: true; precision: mediump"
+    color-space="sRGB"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+    embedded
+  >
+    <a-assets timeout="10000">
+      <!-- Video NOT set to autoplay — we control playback entirely in JS -->
       <video
-        id="valley-video"
-        class="valley-video"
+        id="ar-vid"
         src="./assets/valley-video.mp4"
-        loop
         muted
         playsinline
         webkit-playsinline
+        loop
         preload="auto"
       ></video>
-      <div class="valley-hint">Tap to continue</div>
-    </section>
+    </a-assets>
 
-    <!-- =========  CARDS  ========= -->
-    <section id="screen-cards" class="screen">
-      <div class="card-progress" id="card-progress"></div>
-      <div class="card-stage" id="card-stage"></div>
-      <div class="card-tap-hint">Tap to continue</div>
-    </section>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- =========  COMMUNITY  ========= -->
-    <section id="screen-community" class="screen">
-      <div class="popup">
-        <div class="popup-num">7,243</div>
-        <p class="popup-line">People already gathered around this mesa</p>
-        <h3 class="popup-title">Leave your trace?</h3>
-        <button class="popup-cta" id="community-join">Join the community</button>
-        <button class="popup-dismiss" id="community-skip">Maybe later</button>
-      </div>
-    </section>
+    <a-entity id="target" mindar-image-target="targetIndex: 0">
+      <!--
+        <a-video> plane anchored to the detected marker.
+        video-texture-tick forces needsUpdate every frame (required on iOS).
+        Initially invisible; shown only after user taps "Tap to continue".
+      -->
+      <a-video
+        id="ar-video-plane"
+        src="#ar-vid"
+        width="1.2"
+        height="0.675"
+        position="0 0 0.01"
+        video-texture-tick
+        visible="false"
+      ></a-video>
+    </a-entity>
+  </a-scene>
 
-    <button class="restart-btn" id="restart-btn" title="Restart">↺</button>
 
-    <script>
-      /* =========  CONTENT  ========= */
-      const CARDS = [
-        { num: '01', label: 'The beer',       title: 'ALBA',    desc: 'Soft wheat, bright citrus, mid-morning sun.',          color: 'orange', image: './assets/can.png' },
-        { num: '02', label: 'The ingredient', title: 'NARANJA', desc: 'Valencia oranges, picked at the end of winter.',       color: 'olive',  image: './assets/wheat-orange.png' },
-        { num: '03', label: 'The valley',     title: 'ZARRA',   desc: 'A village of 400, a brewery, and a river.',            color: 'amber',  image: './assets/sun-mountains.png' },
-        { num: '04', label: 'The brewer',     title: 'AITOR',   desc: 'Third generation. Vive grande, vive libre.',           color: 'sage',   image: './assets/brewery.png' },
-      ];
+  <!-- ══════════════════════════════════════════════
+       UI OVERLAYS — sit above AR, never replace it
+       ══════════════════════════════════════════════ -->
 
-      const JOIN_URL = 'https://www.cerveceriadezarra.es';
+  <!-- 1. INTRO -->
+  <div id="ui-intro" class="ui active">
+    <h1 class="intro-mark">WELCOME</h1>
+    <p class="intro-sub">Are you ready?</p>
+    <button class="btn-cta" id="start-btn">Scan to enter</button>
+    <p class="intro-hint">No app needed · Camera will open</p>
+  </div>
 
-      /* =========  CARD RENDERING  ========= */
-      const cardStage    = document.getElementById('card-stage');
-      const cardProgress = document.getElementById('card-progress');
-      CARDS.forEach((c, i) => {
-        const el = document.createElement('div');
-        el.className = 'card';
-        el.dataset.color = c.color;
-        el.dataset.card  = i;
-        el.innerHTML = `
-          <div class="card-art"><img src="${c.image}" alt="${c.title}"></div>
-          <div class="card-meta">/ ${c.num} · ${c.label}</div>
-          <h2 class="card-title">${c.title}</h2>
-          <p class="card-desc">${c.desc}</p>
-        `;
-        cardStage.appendChild(el);
-        const dot = document.createElement('span');
-        dot.className = 'dot';
-        cardProgress.appendChild(dot);
-      });
+  <!-- 2. SCAN -->
+  <div id="ui-scan" class="ui">
+    <div class="scan-frame">
+      <i></i><i></i>
+      <p class="scan-label">Find the can<em>Frame it within</em></p>
+    </div>
+  </div>
 
-      /* =========  STATE MACHINE  ========= */
-      const STATES = ['intro', 'scan', 'detected', 'valley', 'cards', 'community'];
-      let state = 'intro';
-      let cardIndex = 0;
+  <!-- 3. DETECTED -->
+  <div id="ui-detected" class="ui">
+    <div class="det-card">
+      <p class="det-eyebrow">Alba · Detected</p>
+      <h2 class="det-title">Welcome</h2>
+      <p class="det-sub">A small ceremony before the first sip.</p>
+      <button class="btn-cta" id="detected-cta" style="width:100%;display:block">Tap to continue</button>
+    </div>
+  </div>
 
-      const body   = document.body;
-      const scene  = document.querySelector('a-scene');
-      const target = document.getElementById('target');
-      const video  = document.getElementById('valley-video');
+  <!-- 4. VALLEY HINT — AR video plays behind this -->
+  <div id="ui-valley" class="ui">
+    <p class="valley-hint">Tap to continue</p>
+  </div>
 
-      function setScreen(next) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('is-active'));
-        document.getElementById('screen-' + next).classList.add('is-active');
-        body.dataset.state = next;
-        state = next;
-      }
+  <!-- 5. CARDS -->
+  <div id="ui-cards" class="ui">
+    <div class="cards-progress" id="cards-progress"></div>
+    <div class="cards-stage" id="cards-stage"></div>
+    <div class="cards-tap">Tap to continue</div>
+  </div>
 
-      function goTo(next) {
-        if (next === state) return;
-        if (next === 'valley') playValley();
-        else pauseValley();
-        setScreen(next);
-      }
+  <!-- 6. COMMUNITY -->
+  <div id="ui-community" class="ui">
+    <div class="popup">
+      <div class="popup-num">7,243</div>
+      <p class="popup-line">People already gathered around this mesa</p>
+      <h3 class="popup-title">Leave your trace?</h3>
+      <button class="popup-cta" id="join-btn">Join the community</button>
+      <button class="popup-dismiss" id="skip-btn">Maybe later</button>
+    </div>
+  </div>
 
-      function playValley() {
-        try { video.currentTime = 0; } catch (e) {}
-        const p = video.play();
-        if (p && p.catch) p.catch(err => console.warn('valley video play failed:', err));
-      }
+  <button class="restart-btn" id="restart-btn" title="Restart">↺</button>
 
-      function pauseValley() {
-        try { video.pause(); } catch (e) {}
-      }
 
-      function showCard(idx) {
-        cardIndex = idx;
-        document.querySelectorAll('.card').forEach((el, i) => {
-          el.classList.toggle('is-current', i === idx);
-          el.classList.toggle('is-past',    i <  idx);
+  <script>
+    'use strict';
+
+    /* ── CONTENT ─────────────────────────────────────── */
+    var CARDS = [
+      { num:'01', label:'The beer',       title:'ALBA',    desc:'Soft wheat, bright citrus, mid-morning sun.',    color:'orange', img:'./assets/can.png' },
+      { num:'02', label:'The ingredient', title:'NARANJA', desc:'Valencia oranges, picked at the end of winter.', color:'olive',  img:'./assets/wheat-orange.png' },
+      { num:'03', label:'The valley',     title:'ZARRA',   desc:'A village of 400, a brewery, and a river.',      color:'amber',  img:'./assets/sun-mountains.png' },
+      { num:'04', label:'The brewer',     title:'AITOR',   desc:'Third generation. Vive grande, vive libre.',     color:'sage',   img:'./assets/brewery.png' },
+    ];
+
+    /* ── BUILD CARDS ─────────────────────────────────── */
+    var cardsStage    = document.getElementById('cards-stage');
+    var cardsProgress = document.getElementById('cards-progress');
+    CARDS.forEach(function (c, i) {
+      var el = document.createElement('div');
+      el.className = 'card';
+      el.dataset.color = c.color;
+      el.innerHTML =
+        '<div class="card-art"><img src="' + c.img + '" alt="' + c.title + '"></div>' +
+        '<p class="card-meta">/ ' + c.num + ' · ' + c.label + '</p>' +
+        '<h2 class="card-title">' + c.title + '</h2>' +
+        '<p class="card-desc">' + c.desc + '</p>';
+      cardsStage.appendChild(el);
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      cardsProgress.appendChild(dot);
+    });
+
+    /* ── VIDEO PLAYBACK (iOS-safe) ───────────────────── */
+    var vid          = document.getElementById('ar-vid');
+    var videoPlane   = document.getElementById('ar-video-plane');
+    var videoUnlocked = false;
+    var playInFlight  = false;
+
+    /*
+     * UNLOCK PHASE — must run inside the FIRST user gesture.
+     * play() → pause() → reset primes iOS autoplay permission.
+     */
+    function unlockVideo() {
+      if (videoUnlocked) { return Promise.resolve(); }
+      return vid.play()
+        .then(function () {
+          vid.pause();
+          vid.currentTime = 0;
+          videoUnlocked = true;
+          console.log('VIDEO: unlocked');
+        })
+        .catch(function (err) {
+          console.warn('VIDEO: unlock failed', err);
         });
-        document.querySelectorAll('.card-progress .dot').forEach((d, i) => {
-          d.classList.toggle('is-on', i === idx);
+    }
+
+    /* Safe play with single-flight guard and one 300 ms retry */
+    function safePlay() {
+      if (playInFlight) { return; }
+      playInFlight = true;
+      vid.currentTime = 0;
+
+      var p = vid.play();
+      if (p && typeof p.then === 'function') {
+        p.then(function () {
+          playInFlight = false;
+          videoPlane.setAttribute('visible', true);
+          console.log('VIDEO: play success');
+        }).catch(function (err) {
+          playInFlight = false;
+          console.warn('VIDEO: play failed', err);
+          console.log('VIDEO: retry triggered');
+          setTimeout(function () {
+            vid.play()
+              .then(function () {
+                videoPlane.setAttribute('visible', true);
+                console.log('VIDEO: play success (retry)');
+              })
+              .catch(function (e2) { console.warn('VIDEO: retry failed', e2); });
+          }, 300);
         });
+      } else {
+        /* Older WebKit — play() returns undefined */
+        playInFlight = false;
+        videoPlane.setAttribute('visible', true);
       }
+    }
 
-      /* =========  WIRING  ========= */
-      document.getElementById('start-btn').addEventListener('click', async () => {
-        // Unlock video playback inside the user gesture
-        try {
-          video.muted = true;
-          video.playsInline = true;
-          await video.play();
-          video.pause();
-          video.currentTime = 0;
-        } catch (e) {
-          console.warn('video prime failed:', e);
-        }
+    function safePause() {
+      playInFlight = false;
+      try { vid.pause(); } catch (e) {}
+    }
 
-        setScreen('scan');
+    /* ── UI STATE ────────────────────────────────────── */
+    var uiState  = 'intro';
+    var cardIdx  = 0;
 
-        const startMindAR = async () => {
-          try {
-            const sys = scene.systems['mindar-image-system'];
-            if (sys && sys.start) await sys.start();
-          } catch (err) {
-            console.error('mindar start failed:', err);
-            alert('Could not start the camera. Please allow camera access and reload.');
-          }
-        };
-        if (scene.hasLoaded) startMindAR();
-        else scene.addEventListener('loaded', startMindAR, { once: true });
+    function showUI(id) {
+      document.querySelectorAll('.ui').forEach(function (el) {
+        el.classList.remove('active');
       });
+      var el = document.getElementById(id);
+      if (el) { el.classList.add('active'); }
+      var state = id.replace('ui-', '');
+      document.body.dataset.state = state;
+      uiState = state;
+    }
 
-      target.addEventListener('targetFound', () => {
-        if (state === 'scan') goTo('detected');
+    function showCard(idx) {
+      cardIdx = idx;
+      document.querySelectorAll('.card').forEach(function (el, i) {
+        el.classList.toggle('is-current', i === idx);
+        el.classList.toggle('is-past',    i <  idx);
       });
-      target.addEventListener('targetLost', () => {
-        if (state === 'detected') goTo('scan');
+      document.querySelectorAll('.cards-progress .dot').forEach(function (d, i) {
+        d.classList.toggle('on', i === idx);
       });
+    }
 
-      document.getElementById('detected-cta').addEventListener('click', () => goTo('valley'));
+    /* ── AR LIFECYCLE ────────────────────────────────── */
+    var scene  = document.querySelector('a-scene');
+    var target = document.getElementById('target');
 
-      document.getElementById('screen-valley').addEventListener('click', () => {
-        goTo('cards');
-        showCard(0);
+    function startAR() {
+      if (scene.hasLoaded) { doStartAR(); }
+      else { scene.addEventListener('loaded', doStartAR, { once: true }); }
+    }
+
+    function doStartAR() {
+      var sys = scene.systems['mindar-image-system'];
+      if (!sys) { console.warn('AR: mindar system not found'); return; }
+      sys.start()
+        .then(function () { console.log('AR: system started'); })
+        .catch(function (err) {
+          console.error('AR: start failed', err);
+          alert('Camera access required. Please allow camera access and reload.');
+        });
+    }
+
+    target.addEventListener('targetFound', function () {
+      console.log('AR: target found');
+      if (uiState === 'scan') { showUI('ui-detected'); }
+      /* Resume video if user returns to valley state after losing target */
+      if (uiState === 'valley') { safePlay(); }
+    });
+
+    target.addEventListener('targetLost', function () {
+      console.log('AR: target lost');
+      if (uiState === 'detected') { showUI('ui-scan'); }
+      if (uiState === 'valley')   { safePause(); }
+    });
+
+    /* ── BUTTON WIRING ───────────────────────────────── */
+    document.getElementById('start-btn').addEventListener('click', function () {
+      unlockVideo().then(function () {
+        showUI('ui-scan');
+        startAR();
       });
+    });
 
-      document.getElementById('screen-cards').addEventListener('click', (e) => {
-        if (e.target.closest('.restart-btn')) return;
-        if (cardIndex < CARDS.length - 1) showCard(cardIndex + 1);
-        else goTo('community');
-      });
+    document.getElementById('detected-cta').addEventListener('click', function () {
+      showUI('ui-valley');
+      safePlay();
+    });
 
-      document.getElementById('community-join').addEventListener('click', () => {
-        window.open(JOIN_URL, '_blank', 'noopener');
-      });
-      document.getElementById('community-skip').addEventListener('click', restart);
-      document.getElementById('restart-btn').addEventListener('click', restart);
+    document.getElementById('ui-valley').addEventListener('click', function () {
+      safePause();
+      videoPlane.setAttribute('visible', false);
+      showUI('ui-cards');
+      showCard(0);
+    });
 
-      function restart() {
-        cardIndex = 0;
-        showCard(0);
-        goTo('scan');
-      }
+    document.getElementById('ui-cards').addEventListener('click', function (e) {
+      if (e.target.closest('#restart-btn')) { return; }
+      if (cardIdx < CARDS.length - 1) { showCard(cardIdx + 1); }
+      else { showUI('ui-community'); }
+    });
 
-      /* =========  HTTPS GUARD  ========= */
-      if (
-        location.protocol !== 'https:' &&
-        location.hostname !== 'localhost' &&
-        location.hostname !== '127.0.0.1'
-      ) {
-        const warn = document.createElement('div');
-        warn.style.cssText =
-          'position:fixed;top:0;left:0;right:0;padding:.6rem 1rem;background:#7a2418;color:#fff;font:600 .75rem system-ui;z-index:999;text-align:center;letter-spacing:.06em;';
-        warn.textContent = 'WebAR needs HTTPS — open this page over https:// or localhost.';
-        document.body.appendChild(warn);
-      }
-    </script>
-  </body>
+    document.getElementById('join-btn').addEventListener('click', function () {
+      window.open('https://www.cerveceriadezarra.es', '_blank', 'noopener');
+    });
+
+    document.getElementById('skip-btn').addEventListener('click', restart);
+    document.getElementById('restart-btn').addEventListener('click', restart);
+
+    function restart() {
+      safePause();
+      videoPlane.setAttribute('visible', false);
+      cardIdx = 0;
+      showCard(0);
+      showUI('ui-scan');
+    }
+
+    /* ── HTTPS GUARD ─────────────────────────────────── */
+    if (
+      location.protocol !== 'https:' &&
+      location.hostname  !== 'localhost' &&
+      location.hostname  !== '127.0.0.1'
+    ) {
+      var warn = document.createElement('div');
+      warn.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:.6rem 1rem;background:#7a2418;color:#fff;font:600 .75rem system-ui;z-index:9999;text-align:center;letter-spacing:.06em;';
+      warn.textContent = 'WebAR needs HTTPS — open this page over https:// or localhost.';
+      document.body.appendChild(warn);
+    }
+  </script>
+</body>
 </html>
