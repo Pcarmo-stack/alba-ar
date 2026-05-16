@@ -24,37 +24,39 @@
         },
       });
 
-      /* Forces a VideoTexture onto the mesh each tick — bypasses A-Frame's
-         asset pipeline which doesn't reliably call needsUpdate on mobile. */
+      /* Draws video frames onto a canvas each tick → CanvasTexture on the mesh.
+         Canvas approach is the most reliable method across iOS + Android because
+         it bypasses A-Frame's asset pipeline and avoids VideoTexture quirks. */
       AFRAME.registerComponent('video-material', {
         schema: { src: { type: 'selector' } },
         init: function () {
-          this.texture = null;
+          this.canvas = document.createElement('canvas');
+          this.canvas.width = 1280;
+          this.canvas.height = 720;
+          this.ctx = this.canvas.getContext('2d');
+          this.texture = new THREE.CanvasTexture(this.canvas);
+          this.texture.minFilter = THREE.LinearFilter;
+          this.texture.magFilter = THREE.LinearFilter;
+          this.mat = new THREE.MeshBasicMaterial({
+            map: this.texture,
+            side: THREE.DoubleSide,
+          });
           this.el.addEventListener('object3dset', () => this._apply());
           this._apply();
         },
         _apply: function () {
-          const vid = this.data.src;
           const mesh = this.el.getObject3D('mesh');
-          if (!vid || !mesh) return;
-          if (!this.texture) {
-            this.texture = new THREE.VideoTexture(vid);
-            this.texture.minFilter = THREE.LinearFilter;
-            this.texture.magFilter = THREE.LinearFilter;
-          }
+          if (!mesh) return;
           mesh.traverse((node) => {
-            if (node.isMesh && node.material) {
-              node.material.map = this.texture;
-              node.material.needsUpdate = true;
-            }
+            if (node.isMesh) node.material = this.mat;
           });
         },
         tick: function () {
-          if (!this.texture) { this._apply(); return; }
+          this._apply();
           const vid = this.data.src;
-          if (vid && vid.readyState >= 2) {
-            this.texture.needsUpdate = true;
-          }
+          if (!vid || vid.readyState < 2) return;
+          this.ctx.drawImage(vid, 0, 0, this.canvas.width, this.canvas.height);
+          this.texture.needsUpdate = true;
         },
         remove: function () {
           if (this.texture) { this.texture.dispose(); this.texture = null; }
@@ -583,7 +585,10 @@
       embedded
     >
       <a-assets timeout="30000">
-        <video id="vid-landscape" src="./assets/valley-video.mp4" autoplay loop muted playsinline webkit-playsinline preload="auto"></video>
+        <video id="vid-landscape" autoplay loop muted playsinline webkit-playsinline preload="auto">
+          <source src="./assets/valley-video.webm" type="video/webm">
+          <source src="./assets/valley-video.mp4" type="video/mp4">
+        </video>
         <img id="img-wheat"     src="./assets/wheat-orange.png" crossorigin="anonymous" />
         <img id="img-brewery"   src="./assets/brewery.png"      crossorigin="anonymous" />
         <img id="img-sun"       src="./assets/sun-rays.png"     crossorigin="anonymous" />
@@ -599,7 +604,6 @@
           <a-plane
             id="valley-plane"
             position="0 0 -0.05" scale="0.8 1.6 1"
-            material="shader: flat; color: #000000; transparent: false; side: double"
             video-material="src: #vid-landscape">
           </a-plane>
         </a-entity>
