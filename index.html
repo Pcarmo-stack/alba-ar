@@ -26,48 +26,94 @@
 
       /* Draws video frames onto a canvas each tick → CanvasTexture on the mesh. */
       AFRAME.registerComponent('video-material', {
-        schema: { src: { type: 'selector' } },
-        init: function () {
-          const W = 640, H = 360;
-          this.canvas = document.createElement('canvas');
-          this.canvas.width  = W;
-          this.canvas.height = H;
-          this.ctx = this.canvas.getContext('2d');
-          // Start black so there's never a white/blue flash
-          this.ctx.fillStyle = '#000';
-          this.ctx.fillRect(0, 0, W, H);
-          this.texture = new THREE.CanvasTexture(this.canvas);
-          this.texture.minFilter = THREE.LinearFilter;
-          this.texture.magFilter = THREE.LinearFilter;
-          this.mat = new THREE.MeshBasicMaterial({
-            map: this.texture,
-            side: THREE.DoubleSide,
-            depthWrite: false,
-          });
-          this.el.addEventListener('object3dset', () => this._applyMat());
-          this._applyMat();
-        },
-        _applyMat: function () {
-          const mesh = this.el.getObject3D('mesh');
-          if (!mesh) return;
-          mesh.traverse((n) => { if (n.isMesh) n.material = this.mat; });
-        },
-        tick: function () {
-          this._applyMat();
-          const vid = this.data.src;
-          if (!vid || vid.readyState < 2 || vid.paused) {
-            // Retry play in case it wasn't started yet
-            if (vid && vid.paused) vid.play().catch(() => {});
-            return;
-          }
-          this.ctx.drawImage(vid, 0, 0, this.canvas.width, this.canvas.height);
-          this.texture.needsUpdate = true;
-        },
-        remove: function () {
-          if (this.texture) { this.texture.dispose(); this.texture = null; }
-        },
+
+  schema: { src: { type: 'selector' } },
+
+  init: function () {
+
+    const video = this.data.src;
+
+    if (!video) return;
+
+    // Improve mobile playback
+
+    video.setAttribute('playsinline', '');
+
+    video.setAttribute('webkit-playsinline', '');
+
+    video.muted = true;
+
+    video.loop = true;
+
+    video.preload = 'auto';
+
+    // Create direct VideoTexture
+
+    const texture = new THREE.VideoTexture(video);
+
+    texture.minFilter = THREE.LinearFilter;
+
+    texture.magFilter = THREE.LinearFilter;
+
+    texture.format = THREE.RGBAFormat;
+
+    const material = new THREE.MeshBasicMaterial({
+
+      map: texture,
+
+      side: THREE.DoubleSide,
+
+      toneMapped: false,
+
+    });
+
+    const applyMaterial = () => {
+
+      const mesh = this.el.getObject3D('mesh');
+
+      if (!mesh) return;
+
+      mesh.traverse((node) => {
+
+        if (node.isMesh) {
+
+          node.material = material;
+
+        }
+
       });
-    </script>
+
+    };
+
+    this.el.addEventListener('object3dset', applyMaterial);
+
+    applyMaterial();
+
+    // Force playback after user interaction
+
+    const tryPlay = async () => {
+
+      try {
+
+        await video.play();
+
+      } catch (e) {
+
+        console.warn('Video play failed:', e);
+
+      }
+
+    };
+
+    video.addEventListener('canplay', tryPlay);
+
+    tryPlay();
+
+  }
+
+});
+
+</script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -577,7 +623,27 @@
   <body data-state="intro">
 
     <!-- Video lives outside a-scene so A-Frame asset loading never blocks on it -->
-    <video id="vid-landscape" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" loop muted playsinline webkit-playsinline preload="metadata">
+    <video
+
+  id="vid-landscape"
+
+  muted
+
+  loop
+
+  autoplay
+
+  playsinline
+
+  webkit-playsinline
+
+  preload="auto"
+
+  crossorigin="anonymous"
+
+  style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"
+
+>
       <source src="./assets/valley-video.webm" type="video/webm">
       <source src="./assets/valley-video.mp4"  type="video/mp4">
     </video>
