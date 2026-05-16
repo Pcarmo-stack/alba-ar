@@ -763,12 +763,12 @@
       function goTo(next) {
         if (next === state) return;
         if (next === 'valley') {
-          target.querySelectorAll('a-image, a-circle').forEach((c) =>
+          target.querySelectorAll('a-image, a-video, a-circle').forEach((c) =>
             c.dispatchEvent(new CustomEvent('ar-enter'))
           );
         }
         if (state === 'valley' && next !== 'valley') {
-          target.querySelectorAll('a-image, a-circle').forEach((c) =>
+          target.querySelectorAll('a-image, a-video, a-circle').forEach((c) =>
             c.dispatchEvent(new CustomEvent('ar-exit'))
           );
         }
