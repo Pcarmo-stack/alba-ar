@@ -553,43 +553,9 @@
       <a-entity id="target" mindar-image-target="targetIndex: 0">
         <a-entity id="valley-scene" billboard position="0 0 0">
           <a-image src="#img-landscape"
-            position="0 0 -0.05" scale="1.2 2.2 1" opacity="0" transparent="true"
+            position="0 0 -0.05" scale="0.8 1.6 1" opacity="0" transparent="true"
             animation__op="property: opacity; to: 0.75; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
             animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
-
-          <a-image src="#img-sun"
-            position="0 0.15 -0.04" scale="0 0 0" opacity="0" transparent="true"
-            animation__scale="property: scale; to: 1.4 1.4 1; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
-            animation__opacity="property: opacity; to: 0.55; dur: 1600; easing: easeOutCubic; startEvents: ar-enter"
-            animation__spin="property: rotation; to: 0 0 360; dur: 38000; loop: true; easing: linear; startEvents: ar-enter"
-            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
-
-          <a-image src="#img-mtns"
-            position="-0.4 0.08 -0.02" scale="0 0 0" opacity="0" transparent="true"
-            animation__scale="property: scale; to: 0.38 0.30 1; dur: 1200; delay: 600; easing: easeOutCubic; startEvents: ar-enter"
-            animation__op="property: opacity; to: 0.85; dur: 1200; delay: 600; startEvents: ar-enter"
-            animation__bob="property: position; from: -0.4 0.08 -0.02; to: -0.4 0.1 -0.02; dur: 4500; dir: alternate; loop: true; easing: easeInOutSine; startEvents: ar-enter"
-            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
-
-          <a-image src="#img-brewery"
-            position="0.35 -0.08 -0.02" scale="0 0 0" opacity="0" transparent="true"
-            animation__scale="property: scale; to: 0.30 0.25 1; dur: 1200; delay: 900; easing: easeOutCubic; startEvents: ar-enter"
-            animation__op="property: opacity; to: 0.85; dur: 1200; delay: 900; startEvents: ar-enter"
-            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
-
-          <a-image src="#img-wheat"
-            position="0 -0.35 0" scale="0 0 0" opacity="0" transparent="true"
-            animation__rise="property: position; from: 0 -0.35 0; to: 0 0 0; dur: 1400; delay: 1100; easing: easeOutBack; startEvents: ar-enter"
-            animation__scale="property: scale; to: 0.42 0.42 1; dur: 1100; delay: 1100; easing: easeOutBack; startEvents: ar-enter"
-            animation__op="property: opacity; to: 0.95; dur: 800; delay: 1100; startEvents: ar-enter"
-            animation__sway="property: rotation; from: 0 0 -3; to: 0 0 3; dur: 5500; dir: alternate; loop: true; easing: easeInOutSine; startEvents: ar-enter"
-            animation__exit_pos="property: position; to: 0 -0.35 0; dur: 500; startEvents: ar-exit"
-            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
-
           <a-entity id="particles">
             <a-circle radius="0.006" color="#ffd07a" opacity="0" position="-0.15 -0.25 0.01"
               animation__up="property: position; from: -0.15 -0.3 0.01; to: -0.18 0.4 0.01; dur: 6500; loop: true; easing: linear; delay: 1500; startEvents: ar-enter"
