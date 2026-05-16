@@ -546,7 +546,7 @@
       embedded
     >
       <a-assets timeout="30000">
-        <video id="vid-landscape" src="./assets/valley-video.mp4" autoplay loop muted playsinline webkit-playsinline crossorigin="anonymous"></video>
+        <video id="vid-landscape" src="./assets/valley-video.mp4" autoplay loop muted playsinline webkit-playsinline preload="auto"></video>
         <img id="img-wheat"     src="./assets/wheat-orange.png" crossorigin="anonymous" />
         <img id="img-brewery"   src="./assets/brewery.png"      crossorigin="anonymous" />
         <img id="img-sun"       src="./assets/sun-rays.png"     crossorigin="anonymous" />
@@ -559,10 +559,11 @@
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
         <a-entity id="valley-scene" billboard position="0 0 0">
-          <a-video src="#vid-landscape"
-            position="0 0 -0.05" scale="0.8 1.6 1" opacity="0" transparent="true"
-            animation__op="property: opacity; to: 0.75; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
-            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-video>
+          <a-plane
+            position="0 0 -0.05" scale="0.8 1.6 1"
+            material="shader: flat; src: #vid-landscape; transparent: true; opacity: 0; side: double"
+            animation__op="property: material.opacity; to: 0.75; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
+            animation__exit_op="property: material.opacity; to: 0; dur: 500; startEvents: ar-exit"></a-plane>
           <a-entity id="particles">
             <a-circle radius="0.006" color="#ffd07a" opacity="0" position="-0.15 -0.25 0.01"
               animation__up="property: position; from: -0.15 -0.3 0.01; to: -0.18 0.4 0.01; dur: 6500; loop: true; easing: linear; delay: 1500; startEvents: ar-enter"
@@ -769,12 +770,12 @@
             const p = vid.play();
             if (p && p.catch) p.catch(() => {});
           }
-          target.querySelectorAll('a-image, a-video, a-circle').forEach((c) =>
+          target.querySelectorAll('a-image, a-video, a-plane, a-circle').forEach((c) =>
             c.dispatchEvent(new CustomEvent('ar-enter'))
           );
         }
         if (state === 'valley' && next !== 'valley') {
-          target.querySelectorAll('a-image, a-video, a-circle').forEach((c) =>
+          target.querySelectorAll('a-image, a-video, a-plane, a-circle').forEach((c) =>
             c.dispatchEvent(new CustomEvent('ar-exit'))
           );
         }
