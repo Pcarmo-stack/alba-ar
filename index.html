@@ -24,37 +24,42 @@
         },
       });
 
-      /* Draws video frames onto a canvas each tick → CanvasTexture on the mesh.
-         Canvas approach is the most reliable method across iOS + Android because
-         it bypasses A-Frame's asset pipeline and avoids VideoTexture quirks. */
+      /* Draws video frames onto a canvas each tick → CanvasTexture on the mesh. */
       AFRAME.registerComponent('video-material', {
         schema: { src: { type: 'selector' } },
         init: function () {
+          const W = 640, H = 360;
           this.canvas = document.createElement('canvas');
-          this.canvas.width = 1280;
-          this.canvas.height = 720;
+          this.canvas.width  = W;
+          this.canvas.height = H;
           this.ctx = this.canvas.getContext('2d');
+          // Start black so there's never a white/blue flash
+          this.ctx.fillStyle = '#000';
+          this.ctx.fillRect(0, 0, W, H);
           this.texture = new THREE.CanvasTexture(this.canvas);
           this.texture.minFilter = THREE.LinearFilter;
           this.texture.magFilter = THREE.LinearFilter;
           this.mat = new THREE.MeshBasicMaterial({
             map: this.texture,
             side: THREE.DoubleSide,
+            depthWrite: false,
           });
-          this.el.addEventListener('object3dset', () => this._apply());
-          this._apply();
+          this.el.addEventListener('object3dset', () => this._applyMat());
+          this._applyMat();
         },
-        _apply: function () {
+        _applyMat: function () {
           const mesh = this.el.getObject3D('mesh');
           if (!mesh) return;
-          mesh.traverse((node) => {
-            if (node.isMesh) node.material = this.mat;
-          });
+          mesh.traverse((n) => { if (n.isMesh) n.material = this.mat; });
         },
         tick: function () {
-          this._apply();
+          this._applyMat();
           const vid = this.data.src;
-          if (!vid || vid.readyState < 2) return;
+          if (!vid || vid.readyState < 2 || vid.paused) {
+            // Retry play in case it wasn't started yet
+            if (vid && vid.paused) vid.play().catch(() => {});
+            return;
+          }
           this.ctx.drawImage(vid, 0, 0, this.canvas.width, this.canvas.height);
           this.texture.needsUpdate = true;
         },
@@ -571,6 +576,12 @@
 
   <body data-state="intro">
 
+    <!-- Video lives outside a-scene so A-Frame asset loading never blocks on it -->
+    <video id="vid-landscape" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" loop muted playsinline webkit-playsinline preload="metadata">
+      <source src="./assets/valley-video.webm" type="video/webm">
+      <source src="./assets/valley-video.mp4"  type="video/mp4">
+    </video>
+
     <!-- ============================================================
          AR SCENE  ·  camera feed always visible behind everything.
          The valley animations on the can label trigger when the user
@@ -584,11 +595,7 @@
       device-orientation-permission-ui="enabled: false"
       embedded
     >
-      <a-assets timeout="30000">
-        <video id="vid-landscape" autoplay loop muted playsinline webkit-playsinline preload="auto">
-          <source src="./assets/valley-video.webm" type="video/webm">
-          <source src="./assets/valley-video.mp4" type="video/mp4">
-        </video>
+      <a-assets timeout="10000">
         <img id="img-wheat"     src="./assets/wheat-orange.png" crossorigin="anonymous" />
         <img id="img-brewery"   src="./assets/brewery.png"      crossorigin="anonymous" />
         <img id="img-sun"       src="./assets/sun-rays.png"     crossorigin="anonymous" />
