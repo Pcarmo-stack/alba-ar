@@ -23,6 +23,43 @@
           this.el.object3D.lookAt(camPos);
         },
       });
+
+      /* Forces a VideoTexture onto the mesh each tick — bypasses A-Frame's
+         asset pipeline which doesn't reliably call needsUpdate on mobile. */
+      AFRAME.registerComponent('video-material', {
+        schema: { src: { type: 'selector' } },
+        init: function () {
+          this.texture = null;
+          this.el.addEventListener('object3dset', () => this._apply());
+          this._apply();
+        },
+        _apply: function () {
+          const vid = this.data.src;
+          const mesh = this.el.getObject3D('mesh');
+          if (!vid || !mesh) return;
+          if (!this.texture) {
+            this.texture = new THREE.VideoTexture(vid);
+            this.texture.minFilter = THREE.LinearFilter;
+            this.texture.magFilter = THREE.LinearFilter;
+          }
+          mesh.traverse((node) => {
+            if (node.isMesh && node.material) {
+              node.material.map = this.texture;
+              node.material.needsUpdate = true;
+            }
+          });
+        },
+        tick: function () {
+          if (!this.texture) { this._apply(); return; }
+          const vid = this.data.src;
+          if (vid && vid.readyState >= 2) {
+            this.texture.needsUpdate = true;
+          }
+        },
+        remove: function () {
+          if (this.texture) { this.texture.dispose(); this.texture = null; }
+        },
+      });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
@@ -561,7 +598,8 @@
         <a-entity id="valley-scene" billboard position="0 0 0">
           <a-plane
             position="0 0 -0.05" scale="0.8 1.6 1"
-            material="shader: flat; src: #vid-landscape; transparent: true; opacity: 0; side: double"
+            material="shader: flat; transparent: true; opacity: 0; side: double"
+            video-material="src: #vid-landscape"
             animation__op="property: material.opacity; to: 0.75; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
             animation__exit_op="property: material.opacity; to: 0; dur: 500; startEvents: ar-exit"></a-plane>
           <a-entity id="particles">
