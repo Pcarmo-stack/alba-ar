@@ -13,17 +13,6 @@
     <title>Zarra AR Experience</title>
 
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script>
-      AFRAME.registerComponent('billboard', {
-        tick: function () {
-          const cam = this.el.sceneEl && this.el.sceneEl.camera;
-          if (!cam) return;
-          const camPos = new THREE.Vector3();
-          cam.getWorldPosition(camPos);
-          this.el.object3D.lookAt(camPos);
-        },
-      });
-    </script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -306,7 +295,7 @@
         animation-fill-mode: forwards;
       }
       @keyframes hint-breathe {
-        0%       { opacity: 0; transform: translateY(8px); }
+        0%       { opacity: 0; transform: translateY(8px) scale(0.75); }
         20%, 80% { opacity: 1; transform: translateY(0);    }
         50%      { opacity: 0.65; }
         100%     { opacity: 1; transform: translateY(0);    }
@@ -503,6 +492,98 @@
         border-radius: 999px;
       }
 
+      /* ----------  VALLEY ANIMATION LAYERS  ---------- */
+      .valley-bg {
+        position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+      }
+      .va-landscape {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        object-fit: cover; opacity: 0; transform: translateY(30%);
+      }
+      #screen-valley.is-active .va-landscape {
+        animation: va-landscape 0.8s var(--ease-out) forwards;
+      }
+      @keyframes va-landscape { to { opacity: 0.92; transform: translateY(0); } }
+
+      .va-sun-wrap {
+        position: absolute; top: 50%; left: 50%;
+        width: 80vmin; height: 80vmin;
+        translate: -50% -50%;
+      }
+      #screen-valley.is-active .va-sun-wrap {
+        animation: va-spin 38s linear infinite;
+      }
+      .va-sun {
+        width: 100%; height: 100%; object-fit: contain;
+        opacity: 0; transform: scale(0);
+      }
+      #screen-valley.is-active .va-sun {
+        animation: va-appear 1.4s var(--ease-out) forwards;
+        --op-to: 0.55;
+      }
+
+      .va-mtns-wrap {
+        position: absolute; left: 0; bottom: 28%; width: 48%;
+      }
+      #screen-valley.is-active .va-mtns-wrap {
+        animation: va-bob 4.5s 1.8s ease-in-out alternate infinite;
+      }
+      .va-mtns {
+        width: 100%; object-fit: contain;
+        opacity: 0; transform: scale(0); transform-origin: bottom left;
+      }
+      #screen-valley.is-active .va-mtns {
+        animation: va-appear 1.2s 0.6s var(--ease-out) forwards;
+        --op-to: 0.75;
+      }
+
+      .va-brewery {
+        position: absolute; right: 2%; bottom: 22%; width: 38%;
+        object-fit: contain; opacity: 0; transform: scale(0);
+        transform-origin: bottom right;
+      }
+      #screen-valley.is-active .va-brewery {
+        animation: va-appear 1.2s 0.9s var(--ease-out) forwards;
+        --op-to: 0.78;
+      }
+
+      .va-wheat-wrap {
+        position: absolute; bottom: 8%; left: 50%; width: 44%;
+        translate: -50% 0;
+      }
+      #screen-valley.is-active .va-wheat-wrap {
+        animation: va-sway 5.5s 2.5s ease-in-out alternate infinite;
+      }
+      .va-wheat {
+        width: 100%; object-fit: contain;
+        opacity: 0; transform: translateY(60%) scale(0);
+        transform-origin: bottom center;
+      }
+      #screen-valley.is-active .va-wheat {
+        animation: va-wheat-rise 1.4s 1.1s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      }
+
+      .va-particles { position: absolute; inset: 0; }
+      .va-p {
+        position: absolute; border-radius: 50%; bottom: 20%;
+        width: var(--size); height: var(--size); background: var(--color); opacity: 0;
+      }
+      #screen-valley.is-active .va-p {
+        animation: va-float var(--dur) var(--delay) linear infinite;
+      }
+
+      @keyframes va-appear  { to { opacity: var(--op-to, 1); transform: scale(1); } }
+      @keyframes va-spin    { to { transform: rotate(360deg); } }
+      @keyframes va-bob     { to { transform: translateY(-8px); } }
+      @keyframes va-wheat-rise { to { opacity: 1; transform: translateY(0) scale(1); } }
+      @keyframes va-sway    { from { rotate: -3deg; } to { rotate: 3deg; } }
+      @keyframes va-float   {
+        0%  { opacity: 0;    transform: translateY(0); }
+        10% { opacity: 0.85; }
+        90% { opacity: 0.5;  }
+        to  { opacity: 0;    transform: translateY(-80vh); }
+      }
+
       /* Restart button shown on every screen except intro */
       .restart-btn {
         position: fixed;
@@ -538,77 +619,13 @@
       device-orientation-permission-ui="enabled: false"
       embedded
     >
-      <a-assets timeout="30000">
-        <img id="img-landscape" src="./assets/landscape.jpg"    crossorigin="anonymous" />
-        <img id="img-wheat"     src="./assets/wheat-orange.png" crossorigin="anonymous" />
-        <img id="img-brewery"   src="./assets/brewery.png"      crossorigin="anonymous" />
-        <img id="img-sun"       src="./assets/sun-rays.png"     crossorigin="anonymous" />
-        <img id="img-mtns"      src="./assets/sun-mountains.png" crossorigin="anonymous" />
-      </a-assets>
+      <a-assets timeout="30000"></a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
       <a-entity light="type: ambient; color: #ffd9a0; intensity: 0.9"></a-entity>
       <a-entity light="type: directional; color: #fff2c8; intensity: 0.5" position="0.5 1 1"></a-entity>
 
-      <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-entity id="valley-scene" billboard position="0 0 0">
-          <a-image src="#img-landscape"
-            position="0 0 -0.05" scale="1.2 2.2 1" opacity="0" transparent="true"
-            animation__op="property: opacity; to: 0.75; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
-            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
-
-          <a-image src="#img-sun"
-            position="0 0.15 -0.04" scale="0 0 0" opacity="0" transparent="true"
-            animation__scale="property: scale; to: 1.4 1.4 1; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
-            animation__opacity="property: opacity; to: 0.55; dur: 1600; easing: easeOutCubic; startEvents: ar-enter"
-            animation__spin="property: rotation; to: 0 0 360; dur: 38000; loop: true; easing: linear; startEvents: ar-enter"
-            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
-
-          <a-image src="#img-mtns"
-            position="-0.4 0.08 -0.02" scale="0 0 0" opacity="0" transparent="true"
-            animation__scale="property: scale; to: 0.38 0.30 1; dur: 1200; delay: 600; easing: easeOutCubic; startEvents: ar-enter"
-            animation__op="property: opacity; to: 0.85; dur: 1200; delay: 600; startEvents: ar-enter"
-            animation__bob="property: position; from: -0.4 0.08 -0.02; to: -0.4 0.1 -0.02; dur: 4500; dir: alternate; loop: true; easing: easeInOutSine; startEvents: ar-enter"
-            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
-
-          <a-image src="#img-brewery"
-            position="0.35 -0.08 -0.02" scale="0 0 0" opacity="0" transparent="true"
-            animation__scale="property: scale; to: 0.30 0.25 1; dur: 1200; delay: 900; easing: easeOutCubic; startEvents: ar-enter"
-            animation__op="property: opacity; to: 0.85; dur: 1200; delay: 900; startEvents: ar-enter"
-            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
-
-          <a-image src="#img-wheat"
-            position="0 -0.35 0" scale="0 0 0" opacity="0" transparent="true"
-            animation__rise="property: position; from: 0 -0.35 0; to: 0 0 0; dur: 1400; delay: 1100; easing: easeOutBack; startEvents: ar-enter"
-            animation__scale="property: scale; to: 0.42 0.42 1; dur: 1100; delay: 1100; easing: easeOutBack; startEvents: ar-enter"
-            animation__op="property: opacity; to: 0.95; dur: 800; delay: 1100; startEvents: ar-enter"
-            animation__sway="property: rotation; from: 0 0 -3; to: 0 0 3; dur: 5500; dir: alternate; loop: true; easing: easeInOutSine; startEvents: ar-enter"
-            animation__exit_pos="property: position; to: 0 -0.35 0; dur: 500; startEvents: ar-exit"
-            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
-
-          <a-entity id="particles">
-            <a-circle radius="0.006" color="#ffd07a" opacity="0" position="-0.15 -0.25 0.01"
-              animation__up="property: position; from: -0.15 -0.3 0.01; to: -0.18 0.4 0.01; dur: 6500; loop: true; easing: linear; delay: 1500; startEvents: ar-enter"
-              animation__fade="property: opacity; from: 0; to: 0.85; dur: 1800; dir: alternate; loop: true; delay: 1500; startEvents: ar-enter"></a-circle>
-            <a-circle radius="0.004" color="#fff0c2" opacity="0" position="0.13 -0.25 0.01"
-              animation__up="property: position; from: 0.13 -0.3 0.01; to: 0.1 0.45 0.01; dur: 7500; loop: true; easing: linear; delay: 2300; startEvents: ar-enter"
-              animation__fade="property: opacity; from: 0; to: 0.7; dur: 2100; dir: alternate; loop: true; delay: 2300; startEvents: ar-enter"></a-circle>
-            <a-circle radius="0.007" color="#ffb86c" opacity="0" position="0.02 -0.25 0.01"
-              animation__up="property: position; from: 0.02 -0.3 0.01; to: 0.04 0.42 0.01; dur: 8200; loop: true; easing: linear; delay: 1900; startEvents: ar-enter"
-              animation__fade="property: opacity; from: 0; to: 0.8; dur: 2500; dir: alternate; loop: true; delay: 1900; startEvents: ar-enter"></a-circle>
-            <a-circle radius="0.005" color="#ffd07a" opacity="0" position="-0.07 -0.25 0.01"
-              animation__up="property: position; from: -0.07 -0.3 0.01; to: -0.09 0.46 0.01; dur: 7000; loop: true; easing: linear; delay: 2700; startEvents: ar-enter"
-              animation__fade="property: opacity; from: 0; to: 0.75; dur: 1900; dir: alternate; loop: true; delay: 2700; startEvents: ar-enter"></a-circle>
-            <a-circle radius="0.005" color="#ffe4a3" opacity="0" position="0.2 -0.25 0.01"
-              animation__up="property: position; from: 0.2 -0.3 0.01; to: 0.18 0.44 0.01; dur: 9000; loop: true; easing: linear; delay: 3100; startEvents: ar-enter"
-              animation__fade="property: opacity; from: 0; to: 0.7; dur: 2300; dir: alternate; loop: true; delay: 3100; startEvents: ar-enter"></a-circle>
-          </a-entity>
-        </a-entity>
-      </a-entity>
+      <a-entity id="target" mindar-image-target="targetIndex: 0"></a-entity>
     </a-scene>
 
     <!-- ============================================================
@@ -658,6 +675,26 @@
          STATE 4 · VALLEY
          ============================================================ -->
     <section id="screen-valley" class="screen">
+      <div class="valley-bg">
+        <img class="va-landscape" src="./assets/landscape.jpg" alt="">
+        <div class="va-sun-wrap">
+          <img class="va-sun" src="./assets/sun-rays.png" alt="">
+        </div>
+        <div class="va-mtns-wrap">
+          <img class="va-mtns" src="./assets/sun-mountains.png" alt="">
+        </div>
+        <img class="va-brewery" src="./assets/brewery.png" alt="">
+        <div class="va-wheat-wrap">
+          <img class="va-wheat" src="./assets/wheat-orange.png" alt="">
+        </div>
+        <div class="va-particles">
+          <span class="va-p" style="left:32%;--delay:1.5s;--dur:6.5s;--size:12px;--color:#ffd07a"></span>
+          <span class="va-p" style="left:68%;--delay:2.3s;--dur:7.5s;--size:8px;--color:#fff0c2"></span>
+          <span class="va-p" style="left:52%;--delay:1.9s;--dur:8.2s;--size:15px;--color:#ffb86c"></span>
+          <span class="va-p" style="left:40%;--delay:2.7s;--dur:7.0s;--size:10px;--color:#ffd07a"></span>
+          <span class="va-p" style="left:78%;--delay:3.1s;--dur:9.0s;--size:9px;--color:#ffe4a3"></span>
+        </div>
+      </div>
       <div class="valley-hint" data-copy="valley.hint">Tap to continue</div>
     </section>
 
@@ -787,16 +824,6 @@
 
       function goTo(next) {
         if (next === state) return;
-        if (next === 'valley') {
-          target.querySelectorAll('a-image, a-circle').forEach((c) =>
-            c.dispatchEvent(new CustomEvent('ar-enter'))
-          );
-        }
-        if (state === 'valley' && next !== 'valley') {
-          target.querySelectorAll('a-image, a-circle').forEach((c) =>
-            c.dispatchEvent(new CustomEvent('ar-exit'))
-          );
-        }
         document.querySelectorAll('.screen').forEach((s) => s.classList.remove('is-active'));
         document.getElementById('screen-' + next).classList.add('is-active');
         body.dataset.state = next;
