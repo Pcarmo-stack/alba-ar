@@ -763,6 +763,12 @@
       function goTo(next) {
         if (next === state) return;
         if (next === 'valley') {
+          const vid = document.getElementById('vid-landscape');
+          if (vid) {
+            vid.currentTime = 0;
+            const p = vid.play();
+            if (p && p.catch) p.catch(() => {});
+          }
           target.querySelectorAll('a-image, a-video, a-circle').forEach((c) =>
             c.dispatchEvent(new CustomEvent('ar-enter'))
           );
@@ -793,6 +799,12 @@
          WIRING
          ============================================================ */
       document.getElementById('start-btn').addEventListener('click', async () => {
+        document.querySelectorAll('video').forEach((v) => {
+          v.muted = true;
+          v.playsInline = true;
+          const p = v.play();
+          if (p && p.catch) p.catch(() => {});
+        });
         goTo('scan');
         const startMindAR = async () => {
           try {
