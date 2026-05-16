@@ -597,28 +597,11 @@
       <a-entity id="target" mindar-image-target="targetIndex: 0">
         <a-entity id="valley-scene" billboard position="0 0 0">
           <a-plane
+            id="valley-plane"
             position="0 0 -0.05" scale="0.8 1.6 1"
-            material="shader: flat; transparent: true; opacity: 0; side: double"
-            video-material="src: #vid-landscape"
-            animation__op="property: material.opacity; to: 0.75; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
-            animation__exit_op="property: material.opacity; to: 0; dur: 500; startEvents: ar-exit"></a-plane>
-          <a-entity id="particles">
-            <a-circle radius="0.006" color="#ffd07a" opacity="0" position="-0.15 -0.25 0.01"
-              animation__up="property: position; from: -0.15 -0.3 0.01; to: -0.18 0.4 0.01; dur: 6500; loop: true; easing: linear; delay: 1500; startEvents: ar-enter"
-              animation__fade="property: opacity; from: 0; to: 0.85; dur: 1800; dir: alternate; loop: true; delay: 1500; startEvents: ar-enter"></a-circle>
-            <a-circle radius="0.004" color="#fff0c2" opacity="0" position="0.13 -0.25 0.01"
-              animation__up="property: position; from: 0.13 -0.3 0.01; to: 0.1 0.45 0.01; dur: 7500; loop: true; easing: linear; delay: 2300; startEvents: ar-enter"
-              animation__fade="property: opacity; from: 0; to: 0.7; dur: 2100; dir: alternate; loop: true; delay: 2300; startEvents: ar-enter"></a-circle>
-            <a-circle radius="0.007" color="#ffb86c" opacity="0" position="0.02 -0.25 0.01"
-              animation__up="property: position; from: 0.02 -0.3 0.01; to: 0.04 0.42 0.01; dur: 8200; loop: true; easing: linear; delay: 1900; startEvents: ar-enter"
-              animation__fade="property: opacity; from: 0; to: 0.8; dur: 2500; dir: alternate; loop: true; delay: 1900; startEvents: ar-enter"></a-circle>
-            <a-circle radius="0.005" color="#ffd07a" opacity="0" position="-0.07 -0.25 0.01"
-              animation__up="property: position; from: -0.07 -0.3 0.01; to: -0.09 0.46 0.01; dur: 7000; loop: true; easing: linear; delay: 2700; startEvents: ar-enter"
-              animation__fade="property: opacity; from: 0; to: 0.75; dur: 1900; dir: alternate; loop: true; delay: 2700; startEvents: ar-enter"></a-circle>
-            <a-circle radius="0.005" color="#ffe4a3" opacity="0" position="0.2 -0.25 0.01"
-              animation__up="property: position; from: 0.2 -0.3 0.01; to: 0.18 0.44 0.01; dur: 9000; loop: true; easing: linear; delay: 3100; startEvents: ar-enter"
-              animation__fade="property: opacity; from: 0; to: 0.7; dur: 2300; dir: alternate; loop: true; delay: 3100; startEvents: ar-enter"></a-circle>
-          </a-entity>
+            material="shader: flat; color: #000000; transparent: false; side: double"
+            video-material="src: #vid-landscape">
+          </a-plane>
         </a-entity>
       </a-entity>
     </a-scene>
