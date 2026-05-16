@@ -13,6 +13,17 @@
     <title>Zarra AR Experience</title>
 
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script>
+      AFRAME.registerComponent('billboard', {
+        tick: function () {
+          const cam = this.el.sceneEl && this.el.sceneEl.camera;
+          if (!cam) return;
+          const camPos = new THREE.Vector3();
+          cam.getWorldPosition(camPos);
+          this.el.object3D.lookAt(camPos);
+        },
+      });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -540,60 +551,62 @@
       <a-entity light="type: directional; color: #fff2c8; intensity: 0.5" position="0.5 1 1"></a-entity>
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-image src="#img-landscape"
-          position="0 0 -0.8" scale="2.8 5.2 1" opacity="0" transparent="true"
-          animation__op="property: opacity; to: 0.85; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
-          animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
+        <a-entity id="valley-scene" billboard position="0 0 0">
+          <a-image src="#img-landscape"
+            position="0 0 -0.05" scale="1.2 2.2 1" opacity="0" transparent="true"
+            animation__op="property: opacity; to: 0.75; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
+            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
 
-        <a-image src="#img-sun"
-          position="0 0.3 -0.75" scale="0 0 0" opacity="0" transparent="true"
-          animation__scale="property: scale; to: 3.6 3.6 1; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
-          animation__opacity="property: opacity; to: 0.55; dur: 1600; easing: easeOutCubic; startEvents: ar-enter"
-          animation__spin="property: rotation; to: 0 0 360; dur: 38000; loop: true; easing: linear; startEvents: ar-enter"
-          animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-          animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
+          <a-image src="#img-sun"
+            position="0 0.15 -0.04" scale="0 0 0" opacity="0" transparent="true"
+            animation__scale="property: scale; to: 1.4 1.4 1; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
+            animation__opacity="property: opacity; to: 0.55; dur: 1600; easing: easeOutCubic; startEvents: ar-enter"
+            animation__spin="property: rotation; to: 0 0 360; dur: 38000; loop: true; easing: linear; startEvents: ar-enter"
+            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
+            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
 
-        <a-image src="#img-mtns"
-          position="-1.0 0.25 -0.7" scale="0 0 0" opacity="0" transparent="true"
-          animation__scale="property: scale; to: 0.95 0.75 1; dur: 1200; delay: 600; easing: easeOutCubic; startEvents: ar-enter"
-          animation__op="property: opacity; to: 0.85; dur: 1200; delay: 600; startEvents: ar-enter"
-          animation__bob="property: position; from: -1.0 0.25 -0.7; to: -1.0 0.3 -0.7; dur: 4500; dir: alternate; loop: true; easing: easeInOutSine; startEvents: ar-enter"
-          animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-          animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
+          <a-image src="#img-mtns"
+            position="-0.4 0.08 -0.02" scale="0 0 0" opacity="0" transparent="true"
+            animation__scale="property: scale; to: 0.38 0.30 1; dur: 1200; delay: 600; easing: easeOutCubic; startEvents: ar-enter"
+            animation__op="property: opacity; to: 0.85; dur: 1200; delay: 600; startEvents: ar-enter"
+            animation__bob="property: position; from: -0.4 0.08 -0.02; to: -0.4 0.1 -0.02; dur: 4500; dir: alternate; loop: true; easing: easeInOutSine; startEvents: ar-enter"
+            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
+            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
 
-        <a-image src="#img-brewery"
-          position="0.9 -0.2 -0.7" scale="0 0 0" opacity="0" transparent="true"
-          animation__scale="property: scale; to: 0.7 0.6 1; dur: 1200; delay: 900; easing: easeOutCubic; startEvents: ar-enter"
-          animation__op="property: opacity; to: 0.85; dur: 1200; delay: 900; startEvents: ar-enter"
-          animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-          animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
+          <a-image src="#img-brewery"
+            position="0.35 -0.08 -0.02" scale="0 0 0" opacity="0" transparent="true"
+            animation__scale="property: scale; to: 0.30 0.25 1; dur: 1200; delay: 900; easing: easeOutCubic; startEvents: ar-enter"
+            animation__op="property: opacity; to: 0.85; dur: 1200; delay: 900; startEvents: ar-enter"
+            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
+            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
 
-        <a-image src="#img-wheat"
-          position="0 -0.9 -0.6" scale="0 0 0" opacity="0" transparent="true"
-          animation__rise="property: position; from: 0 -0.9 -0.6; to: 0 -0.05 -0.6; dur: 1400; delay: 1100; easing: easeOutBack; startEvents: ar-enter"
-          animation__scale="property: scale; to: 1.0 1.0 1; dur: 1100; delay: 1100; easing: easeOutBack; startEvents: ar-enter"
-          animation__op="property: opacity; to: 0.95; dur: 800; delay: 1100; startEvents: ar-enter"
-          animation__sway="property: rotation; from: 0 0 -3; to: 0 0 3; dur: 5500; dir: alternate; loop: true; easing: easeInOutSine; startEvents: ar-enter"
-          animation__exit_pos="property: position; to: 0 -0.9 -0.6; dur: 500; startEvents: ar-exit"
-          animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
-          animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
+          <a-image src="#img-wheat"
+            position="0 -0.35 0" scale="0 0 0" opacity="0" transparent="true"
+            animation__rise="property: position; from: 0 -0.35 0; to: 0 0 0; dur: 1400; delay: 1100; easing: easeOutBack; startEvents: ar-enter"
+            animation__scale="property: scale; to: 0.42 0.42 1; dur: 1100; delay: 1100; easing: easeOutBack; startEvents: ar-enter"
+            animation__op="property: opacity; to: 0.95; dur: 800; delay: 1100; startEvents: ar-enter"
+            animation__sway="property: rotation; from: 0 0 -3; to: 0 0 3; dur: 5500; dir: alternate; loop: true; easing: easeInOutSine; startEvents: ar-enter"
+            animation__exit_pos="property: position; to: 0 -0.35 0; dur: 500; startEvents: ar-exit"
+            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
+            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
 
-        <a-entity id="particles">
-          <a-circle radius="0.014" color="#ffd07a" opacity="0" position="-0.4 -0.6 -0.55"
-            animation__up="property: position; from: -0.4 -0.7 -0.55; to: -0.45 1.0 -0.55; dur: 6500; loop: true; easing: linear; delay: 1500; startEvents: ar-enter"
-            animation__fade="property: opacity; from: 0; to: 0.85; dur: 1800; dir: alternate; loop: true; delay: 1500; startEvents: ar-enter"></a-circle>
-          <a-circle radius="0.01" color="#fff0c2" opacity="0" position="0.35 -0.6 -0.55"
-            animation__up="property: position; from: 0.35 -0.7 -0.55; to: 0.3 1.1 -0.55; dur: 7500; loop: true; easing: linear; delay: 2300; startEvents: ar-enter"
-            animation__fade="property: opacity; from: 0; to: 0.7; dur: 2100; dir: alternate; loop: true; delay: 2300; startEvents: ar-enter"></a-circle>
-          <a-circle radius="0.017" color="#ffb86c" opacity="0" position="0.05 -0.6 -0.55"
-            animation__up="property: position; from: 0.05 -0.7 -0.55; to: 0.1 1.05 -0.55; dur: 8200; loop: true; easing: linear; delay: 1900; startEvents: ar-enter"
-            animation__fade="property: opacity; from: 0; to: 0.8; dur: 2500; dir: alternate; loop: true; delay: 1900; startEvents: ar-enter"></a-circle>
-          <a-circle radius="0.012" color="#ffd07a" opacity="0" position="-0.18 -0.6 -0.55"
-            animation__up="property: position; from: -0.18 -0.7 -0.55; to: -0.21 1.15 -0.55; dur: 7000; loop: true; easing: linear; delay: 2700; startEvents: ar-enter"
-            animation__fade="property: opacity; from: 0; to: 0.75; dur: 1900; dir: alternate; loop: true; delay: 2700; startEvents: ar-enter"></a-circle>
-          <a-circle radius="0.011" color="#ffe4a3" opacity="0" position="0.5 -0.6 -0.55"
-            animation__up="property: position; from: 0.5 -0.7 -0.55; to: 0.45 1.1 -0.55; dur: 9000; loop: true; easing: linear; delay: 3100; startEvents: ar-enter"
-            animation__fade="property: opacity; from: 0; to: 0.7; dur: 2300; dir: alternate; loop: true; delay: 3100; startEvents: ar-enter"></a-circle>
+          <a-entity id="particles">
+            <a-circle radius="0.006" color="#ffd07a" opacity="0" position="-0.15 -0.25 0.01"
+              animation__up="property: position; from: -0.15 -0.3 0.01; to: -0.18 0.4 0.01; dur: 6500; loop: true; easing: linear; delay: 1500; startEvents: ar-enter"
+              animation__fade="property: opacity; from: 0; to: 0.85; dur: 1800; dir: alternate; loop: true; delay: 1500; startEvents: ar-enter"></a-circle>
+            <a-circle radius="0.004" color="#fff0c2" opacity="0" position="0.13 -0.25 0.01"
+              animation__up="property: position; from: 0.13 -0.3 0.01; to: 0.1 0.45 0.01; dur: 7500; loop: true; easing: linear; delay: 2300; startEvents: ar-enter"
+              animation__fade="property: opacity; from: 0; to: 0.7; dur: 2100; dir: alternate; loop: true; delay: 2300; startEvents: ar-enter"></a-circle>
+            <a-circle radius="0.007" color="#ffb86c" opacity="0" position="0.02 -0.25 0.01"
+              animation__up="property: position; from: 0.02 -0.3 0.01; to: 0.04 0.42 0.01; dur: 8200; loop: true; easing: linear; delay: 1900; startEvents: ar-enter"
+              animation__fade="property: opacity; from: 0; to: 0.8; dur: 2500; dir: alternate; loop: true; delay: 1900; startEvents: ar-enter"></a-circle>
+            <a-circle radius="0.005" color="#ffd07a" opacity="0" position="-0.07 -0.25 0.01"
+              animation__up="property: position; from: -0.07 -0.3 0.01; to: -0.09 0.46 0.01; dur: 7000; loop: true; easing: linear; delay: 2700; startEvents: ar-enter"
+              animation__fade="property: opacity; from: 0; to: 0.75; dur: 1900; dir: alternate; loop: true; delay: 2700; startEvents: ar-enter"></a-circle>
+            <a-circle radius="0.005" color="#ffe4a3" opacity="0" position="0.2 -0.25 0.01"
+              animation__up="property: position; from: 0.2 -0.3 0.01; to: 0.18 0.44 0.01; dur: 9000; loop: true; easing: linear; delay: 3100; startEvents: ar-enter"
+              animation__fade="property: opacity; from: 0; to: 0.7; dur: 2300; dir: alternate; loop: true; delay: 3100; startEvents: ar-enter"></a-circle>
+          </a-entity>
         </a-entity>
       </a-entity>
     </a-scene>
@@ -775,12 +788,12 @@
       function goTo(next) {
         if (next === state) return;
         if (next === 'valley') {
-          target.querySelectorAll('*').forEach((c) =>
+          target.querySelectorAll('a-image, a-circle').forEach((c) =>
             c.dispatchEvent(new CustomEvent('ar-enter'))
           );
         }
         if (state === 'valley' && next !== 'valley') {
-          target.querySelectorAll('*').forEach((c) =>
+          target.querySelectorAll('a-image, a-circle').forEach((c) =>
             c.dispatchEvent(new CustomEvent('ar-exit'))
           );
         }
