@@ -10,9 +10,20 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Zarra · Alba AR</title>
+    <title>Zarra AR Experience</title>
 
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script>
+      AFRAME.registerComponent('billboard', {
+        tick: function () {
+          const cam = this.el.sceneEl && this.el.sceneEl.camera;
+          if (!cam) return;
+          const camPos = new THREE.Vector3();
+          cam.getWorldPosition(camPos);
+          this.el.object3D.lookAt(camPos);
+        },
+      });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -23,22 +34,30 @@
     />
 
     <style>
+      /* ==========================================================
+         DESIGN TOKENS  ·  edit these to retheme the whole experience
+         ========================================================== */
       :root {
-        --orange:   #E48043;
-        --olive:    #9C963A;
-        --amber:    #D9A032;
-        --sage:     #8FA38C;
-        --paper:    #FBF5E6;
-        --ink:      #2A1A0E;
-        --ink-soft: rgba(42, 26, 14, 0.6);
-        --bg:       #1a1208;
+        --orange:     #E48043;   /* Card 1 / primary action */
+        --olive:      #9C963A;   /* Card 2 — the ingredient */
+        --amber:      #D9A032;   /* Card 3 — the valley */
+        --sage:       #8FA38C;   /* Card 4 — the brewer */
+        --cream:      #F5E8D0;   /* Popup body */
+        --paper:      #FBF5E6;   /* Light card wash */
+        --ink:        #2A1A0E;   /* Primary text */
+        --ink-soft:   rgba(42, 26, 14, 0.6);
+        --ink-faint:  rgba(42, 26, 14, 0.35);
+        --teal:       #4B7E8F;   /* Popup accent stroke */
+        --bg:         #1a1208;   /* Splash background */
 
         --font-display: 'Megrim', cursive;
         --font-body:    'Nunito', system-ui, sans-serif;
 
-        --t-fast: 180ms;
-        --t-med:  360ms;
-        --ease:   cubic-bezier(0.16, 1, 0.3, 1);
+        --t-fast:   180ms;
+        --t-med:    360ms;
+        --t-slow:   720ms;
+        --ease:     cubic-bezier(0.4, 0, 0.2, 1);
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
       }
 
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -46,43 +65,44 @@
         margin: 0; padding: 0;
         height: 100%; width: 100%;
         overflow: hidden;
-        background: #000;
+        background: transparent;
         font-family: var(--font-body);
         color: var(--ink);
         -webkit-font-smoothing: antialiased;
       }
+      img { display: block; max-width: 100%; }
       button {
         appearance: none; border: 0; background: 0; cursor: pointer;
         font: inherit; color: inherit;
       }
 
-      /* =========  AR scene sits behind everything  ========= */
       a-scene {
         position: fixed !important;
         inset: 0 !important;
         z-index: 1;
       }
 
-      /* =========  SCREEN SYSTEM  ========= */
+      /* ==========================================================
+         SCREEN SYSTEM
+         ========================================================== */
       .screen {
         position: fixed; inset: 0;
         z-index: 5;
         display: grid;
         place-items: center;
-        padding: 1.2rem;
+        padding: 1.4rem;
         opacity: 0;
         visibility: hidden;
+        transition: opacity var(--t-med) var(--ease),
+                    visibility var(--t-med) var(--ease);
         pointer-events: none;
-        transition:
-          opacity var(--t-med) var(--ease),
-          visibility var(--t-med) var(--ease);
       }
       .screen.is-active {
         opacity: 1; visibility: visible;
         pointer-events: auto;
       }
 
-      /* =========  INTRO  ========= */
+      /* ----------  STATE 1 · INTRO  ---------- */
       #screen-intro {
         z-index: 50;
         background:
@@ -90,40 +110,53 @@
           var(--bg);
         text-align: center;
       }
+      .intro-inner { max-width: 22rem; }
+      .intro-orn {
+        width: 64px;
+        margin: 0 auto 1.2rem;
+        opacity: 0.7;
+        filter: brightness(1.15) saturate(0.7);
+      }
       .intro-mark {
         font-family: var(--font-display);
-        font-size: clamp(2.6rem, 12vw, 4.2rem);
+        font-size: 4.2rem;
         letter-spacing: 0.18em;
         color: #fdf6e3;
-        margin: 0 0 0.4rem;
+        line-height: 1;
+        margin: 0 0 0.3rem;
       }
       .intro-sub {
         font-weight: 300; font-style: italic;
-        font-size: clamp(0.85rem, 3.4vw, 1rem);
-        color: rgba(253, 246, 227, 0.6);
-        margin: 0 0 2.2rem;
+        font-size: 1rem;
         letter-spacing: 0.08em;
+        color: rgba(253, 246, 227, 0.6);
+        margin: 0 0 2.6rem;
       }
       .intro-cta {
         font-family: var(--font-display);
-        font-size: clamp(1rem, 4vw, 1.3rem);
+        font-size: 1.3rem;
         letter-spacing: 0.22em;
         color: #fdf6e3;
         background: var(--orange);
-        padding: 0.9rem 2.2rem;
+        padding: 0.95rem 2.4rem;
         border-radius: 999px;
         box-shadow: 0 8px 28px rgba(228, 128, 67, 0.35);
+        transition: transform var(--t-fast) var(--ease),
+                    box-shadow var(--t-fast) var(--ease);
       }
-      .intro-cta:active { transform: translateY(1px) scale(0.98); }
+      .intro-cta:active {
+        transform: translateY(1px) scale(0.98);
+        box-shadow: 0 4px 16px rgba(228, 128, 67, 0.25);
+      }
       .intro-hint {
         margin-top: 1.6rem;
-        font-size: 0.7rem;
+        font-size: 0.72rem;
         letter-spacing: 0.18em;
         text-transform: uppercase;
         color: rgba(253, 246, 227, 0.4);
       }
 
-      /* =========  SCAN  ========= */
+      /* ----------  STATE 2 · SCANNING  ---------- */
       #screen-scan { background: transparent; }
       .scan-frame {
         position: relative;
@@ -132,23 +165,26 @@
         border: 1px solid rgba(253, 246, 227, 0.45);
         animation: scan-pulse 2.4s ease-in-out infinite;
       }
-      .scan-frame::before, .scan-frame::after,
-      .scan-frame > i:nth-child(1), .scan-frame > i:nth-child(2) {
+      .scan-frame::before,
+      .scan-frame::after,
+      .scan-frame > i:nth-child(1),
+      .scan-frame > i:nth-child(2) {
         content: '';
         position: absolute;
         width: 22px; height: 22px;
         border: 2px solid var(--orange);
       }
-      .scan-frame::before { top: -1px; left:  -1px; border-right: 0; border-bottom: 0; }
+      .scan-frame::before { top: -1px; left: -1px;  border-right: 0; border-bottom: 0; }
       .scan-frame::after  { top: -1px; right: -1px; border-left:  0; border-bottom: 0; }
-      .scan-frame > i:nth-child(1) { bottom: -1px; left:  -1px; border-right: 0; border-top: 0; }
+      .scan-frame > i:nth-child(1) { bottom: -1px; left: -1px;  border-right: 0; border-top: 0; }
       .scan-frame > i:nth-child(2) { bottom: -1px; right: -1px; border-left:  0; border-top: 0; }
       .scan-hint {
         position: absolute;
-        top: calc(100% + 1.6rem);
-        left: 50%; transform: translateX(-50%);
+        top: calc(100% + 1.8rem);
+        left: 50%;
+        transform: translateX(-50%);
         font-family: var(--font-display);
-        font-size: clamp(1rem, 4vw, 1.3rem);
+        font-size: 1.3rem;
         letter-spacing: 0.18em;
         color: #fdf6e3;
         white-space: nowrap;
@@ -159,237 +195,315 @@
         font-family: var(--font-body);
         font-style: normal;
         font-weight: 300;
-        font-size: 0.7rem;
-        letter-spacing: 0.2em;
+        font-size: 0.72rem;
+        letter-spacing: 0.22em;
         text-transform: uppercase;
         color: rgba(253, 246, 227, 0.5);
-        margin-top: 0.5rem;
+        margin-top: 0.6rem;
       }
       @keyframes scan-pulse {
         0%, 100% { transform: scale(1);     opacity: 1;    }
         50%      { transform: scale(1.035); opacity: 0.55; }
       }
 
-      /* =========  DETECTED PROMPT  ========= */
+      .dev-skip {
+        position: fixed;
+        bottom: calc(env(safe-area-inset-bottom, 0) + 1rem);
+        right: 1rem;
+        z-index: 100;
+        font-size: 0.7rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(253, 246, 227, 0.5);
+        padding: 0.5rem 0.9rem;
+        border: 1px solid rgba(253, 246, 227, 0.2);
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(6px);
+      }
+      body:not(.is-debug) .dev-skip { display: none; }
+
+      /* ----------  STATE 3 · DETECTED PROMPT  ---------- */
       #screen-detected { background: rgba(10, 7, 3, 0.45); }
       .prompt-card {
         background: var(--paper);
         border-radius: 18px;
-        padding: 1.8rem 1.6rem 1.4rem;
+        padding: 2rem 1.8rem 1.6rem;
         width: min(86vw, 320px);
         text-align: center;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+        box-shadow:
+          0 30px 80px rgba(0, 0, 0, 0.45),
+          0 0 0 1px rgba(42, 26, 14, 0.05);
+        transform: translateY(20px) scale(0.96);
+        opacity: 0;
+        transition: transform var(--t-slow) var(--ease-out),
+                    opacity var(--t-slow) var(--ease-out);
       }
+      .is-active .prompt-card { transform: translateY(0) scale(1); opacity: 1; }
       .prompt-eyebrow {
         font-size: 0.66rem;
         letter-spacing: 0.32em;
         text-transform: uppercase;
         color: var(--ink-soft);
-        margin: 0 0 0.9rem;
+        margin: 0 0 1.1rem;
       }
+      .prompt-eyebrow .dot { color: var(--orange); margin: 0 0.45em; }
       .prompt-title {
         font-family: var(--font-display);
-        font-size: clamp(2rem, 8vw, 2.6rem);
-        letter-spacing: 0.08em;
-        margin: 0 0 0.5rem;
+        font-size: 2rem;
+        letter-spacing: 0.06em;
+        margin: 0 0 0.4rem;
+        color: var(--ink);
+        line-height: 1.05;
       }
       .prompt-sub {
-        font-size: 0.92rem;
-        line-height: 1.45;
+        font-weight: 300;
+        font-size: 0.85rem;
         color: var(--ink-soft);
-        margin: 0 0 1.4rem;
+        margin: 0 0 1.5rem;
       }
       .prompt-cta {
         display: block;
         width: 100%;
-        padding: 0.85rem 1rem;
         font-family: var(--font-display);
-        font-size: 1rem;
-        letter-spacing: 0.2em;
+        font-size: 1.05rem;
+        letter-spacing: 0.18em;
         color: #fdf6e3;
         background: var(--orange);
+        padding: 0.85rem 1rem;
         border-radius: 999px;
+        transition: transform var(--t-fast) var(--ease);
       }
-      .prompt-cta:active { transform: translateY(1px) scale(0.98); }
+      .prompt-cta:active { transform: scale(0.98); }
       .prompt-tag {
-        margin-top: 1rem;
-        font-size: 0.62rem;
-        letter-spacing: 0.22em;
+        margin: 1rem 0 0;
+        font-size: 0.66rem;
+        letter-spacing: 0.28em;
         text-transform: uppercase;
-        color: rgba(42, 26, 14, 0.35);
+        color: var(--ink-faint);
       }
 
-      /* =========  VALLEY (FULLSCREEN VIDEO)  ========= */
+      /* ----------  STATE 4 · VALLEY  ---------- */
       #screen-valley {
-        background: #000;
-        padding: 0;
-      }
-      .valley-video {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        background: #000;
+        background: transparent;
+        align-items: end;
+        padding-bottom: calc(env(safe-area-inset-bottom, 0) + 2rem);
       }
       .valley-hint {
-        position: absolute;
-        bottom: calc(env(safe-area-inset-bottom, 0) + 1.6rem);
-        left: 50%;
-        transform: translateX(-50%);
-        font-family: var(--font-display);
-        font-size: clamp(0.95rem, 3.8vw, 1.2rem);
-        letter-spacing: 0.22em;
+        font-size: 0.72rem;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
         color: #fdf6e3;
-        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
-        animation: valley-pulse 2s ease-in-out infinite;
-        pointer-events: none;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+        padding: 0.7rem 1.2rem;
+        border: 1px solid rgba(253, 246, 227, 0.35);
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(6px);
+        animation: hint-breathe 2.4s ease-in-out infinite;
+        opacity: 0;
+        animation-delay: 1.4s;
+        animation-fill-mode: forwards;
       }
-      @keyframes valley-pulse {
-        0%, 100% { opacity: 0.65; }
-        50%      { opacity: 1;    }
+      @keyframes hint-breathe {
+        0%       { opacity: 0; transform: translateY(8px); }
+        20%, 80% { opacity: 1; transform: translateY(0);    }
+        50%      { opacity: 0.65; }
+        100%     { opacity: 1; transform: translateY(0);    }
       }
 
-      /* =========  CARDS  ========= */
-      #screen-cards {
-        background: linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0.85));
-        place-items: stretch;
-        padding: 0;
-      }
+      /* ----------  STATE 5 · CARDS  ---------- */
+      #screen-cards { background: rgba(10, 7, 3, 0.35); }
       .card-stage {
         position: relative;
-        width: 100%; height: 100%;
-        display: grid;
-        place-items: center;
+        width: min(82vw, 340px);
+        aspect-ratio: 0.72;
       }
       .card {
         position: absolute;
-        width: min(86vw, 340px);
-        background: var(--paper);
-        border-radius: 22px;
-        padding: 1.4rem 1.4rem 1.6rem;
-        text-align: center;
+        inset: 0;
+        border-radius: 16px;
+        overflow: hidden;
+        background: var(--bg-color);
+        box-shadow:
+          0 30px 70px rgba(0, 0, 0, 0.45),
+          0 0 0 1px rgba(0, 0, 0, 0.06);
         opacity: 0;
-        transform: translateY(40px) scale(0.94);
-        transition:
-          opacity var(--t-med) var(--ease),
-          transform var(--t-med) var(--ease);
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+        transform: translateX(40px) scale(0.97);
+        transition: opacity var(--t-med) var(--ease-out),
+                    transform var(--t-med) var(--ease-out);
+        display: flex;
+        flex-direction: column;
+        padding: 1.8rem 1.6rem;
       }
-      .card.is-current {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-      .card.is-past {
-        opacity: 0;
-        transform: translateY(-30px) scale(0.94);
-      }
-      .card[data-color="orange"] { border-top: 4px solid var(--orange); }
-      .card[data-color="olive"]  { border-top: 4px solid var(--olive); }
-      .card[data-color="amber"]  { border-top: 4px solid var(--amber); }
-      .card[data-color="sage"]   { border-top: 4px solid var(--sage); }
+      .card.is-current { opacity: 1; transform: translateX(0) scale(1); }
+      .card.is-past    { opacity: 0; transform: translateX(-40px) scale(0.97); }
+      .card[data-color="orange"] { --bg-color: var(--orange); }
+      .card[data-color="olive"]  { --bg-color: var(--olive);  }
+      .card[data-color="amber"]  { --bg-color: var(--amber);  }
+      .card[data-color="sage"]   { --bg-color: var(--sage);   }
+
       .card-art {
-        width: 60%;
-        margin: 0 auto 0.9rem;
-        aspect-ratio: 1;
+        flex: 1;
         display: grid;
         place-items: center;
+        padding: 0.5rem;
+        padding-bottom: 1.8rem;
+        min-height: 0;
+        align-items: flex-start;
       }
       .card-art img {
-        max-width: 100%;
         max-height: 100%;
+        max-width: 100%;
+        width: auto;
+        height: auto;
         object-fit: contain;
-        display: block;
+        filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.18));
       }
       .card-meta {
+        display: flex;
+        align-items: baseline;
+        gap: 0.6em;
         font-size: 0.66rem;
-        letter-spacing: 0.26em;
+        font-weight: 600;
+        letter-spacing: 0.28em;
         text-transform: uppercase;
-        color: var(--ink-soft);
-        margin: 0 0 0.5rem;
+        color: rgba(42, 26, 14, 0.5);
+        margin-bottom: 0.45rem;
       }
+      .card-meta .slash { font-weight: 300; }
+      .card-meta .num   { color: rgba(42, 26, 14, 0.7); }
       .card-title {
         font-family: var(--font-display);
-        font-size: clamp(1.8rem, 7vw, 2.4rem);
-        letter-spacing: 0.1em;
-        margin: 0 0 0.5rem;
+        font-size: 2.4rem;
+        letter-spacing: 0.06em;
+        line-height: 1;
+        color: var(--ink);
+        margin: 0 0 0.6rem;
       }
       .card-desc {
-        font-size: 0.92rem;
+        font-weight: 400;
+        font-size: 0.82rem;
         line-height: 1.45;
-        color: var(--ink-soft);
+        color: rgba(42, 26, 14, 0.78);
         margin: 0;
       }
-      .card-tap-hint {
-        position: absolute;
-        bottom: calc(env(safe-area-inset-bottom, 0) + 1.2rem);
-        left: 50%; transform: translateX(-50%);
-        font-size: 0.66rem;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: rgba(253, 246, 227, 0.55);
-      }
+
       .card-progress {
         position: absolute;
-        top: calc(env(safe-area-inset-top, 0) + 1.2rem);
-        left: 50%; transform: translateX(-50%);
+        bottom: calc(env(safe-area-inset-bottom, 0) + 2rem);
+        left: 50%;
+        transform: translateX(-50%);
         display: flex;
-        gap: 0.4rem;
+        gap: 0.55rem;
       }
       .card-progress .dot {
         width: 6px; height: 6px;
         border-radius: 50%;
         background: rgba(253, 246, 227, 0.3);
+        transition: background var(--t-fast), width var(--t-fast);
       }
-      .card-progress .dot.is-on { background: var(--orange); }
+      .card-progress .dot.is-on {
+        background: #fdf6e3;
+        width: 20px; border-radius: 3px;
+      }
+      .card-tap-hint {
+        position: absolute;
+        top: calc(env(safe-area-inset-top, 0) + 1.4rem);
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.66rem;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: rgba(253, 246, 227, 0.55);
+      }
 
-      /* =========  COMMUNITY  ========= */
-      #screen-community { background: #1a1208; }
+      /* ----------  STATE 6 · COMMUNITY POPUP  ---------- */
+      #screen-community {
+        background:
+          linear-gradient(rgba(10, 7, 3, 0.5), rgba(10, 7, 3, 0.5)),
+          url('./assets/landscape.jpg') center/cover;
+      }
       .popup {
-        background: var(--paper);
-        border-radius: 22px;
-        padding: 1.8rem 1.6rem 1.5rem;
-        width: min(86vw, 320px);
+        background: var(--cream);
+        border: 2px solid var(--teal);
+        border-radius: 16px;
+        padding: 2.4rem 1.8rem 1.6rem;
+        width: min(80vw, 300px);
         text-align: center;
+        position: relative;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+        transform: scale(0.92);
+        opacity: 0;
+        transition: transform var(--t-slow) var(--ease-out),
+                    opacity var(--t-slow) var(--ease-out);
+      }
+      .is-active .popup { transform: scale(1); opacity: 1; }
+      .popup-mark {
+        position: absolute;
+        top: -20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        background: var(--cream);
+        border: 2px solid var(--teal);
+        display: grid;
+        place-items: center;
+        font-family: var(--font-display);
+        font-size: 1.4rem;
+        color: var(--orange);
       }
       .popup-num {
         font-family: var(--font-display);
-        font-size: clamp(2.6rem, 11vw, 3.4rem);
+        font-size: 3.6rem;
+        line-height: 1;
+        letter-spacing: 0.04em;
         color: var(--orange);
-        margin: 0;
+        margin: 0.4rem 0 0.7rem;
       }
       .popup-line {
-        font-size: 0.88rem;
-        color: var(--ink-soft);
-        margin: 0.3rem 0 1rem;
+        font-size: 0.7rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(42, 26, 14, 0.7);
+        line-height: 1.55;
+        margin: 0 0 1.5rem;
       }
       .popup-title {
         font-family: var(--font-display);
-        font-size: clamp(1.6rem, 6.5vw, 2rem);
-        letter-spacing: 0.08em;
-        margin: 0 0 1.2rem;
+        font-size: 1.7rem;
+        letter-spacing: 0.06em;
+        color: var(--ink);
+        margin: 0 0 1.4rem;
       }
       .popup-cta {
         display: block;
         width: 100%;
-        padding: 0.85rem 1rem;
         font-family: var(--font-display);
-        font-size: 1rem;
-        letter-spacing: 0.2em;
+        font-size: 1.05rem;
+        letter-spacing: 0.16em;
         color: #fdf6e3;
         background: var(--orange);
+        padding: 0.85rem 1rem;
         border-radius: 999px;
-        margin-bottom: 0.7rem;
+        margin-bottom: 0.6rem;
+        transition: transform var(--t-fast) var(--ease);
       }
+      .popup-cta:active { transform: scale(0.98); }
       .popup-dismiss {
+        display: block;
         width: 100%;
-        font-size: 0.78rem;
+        font-size: 0.85rem;
+        font-weight: 600;
         letter-spacing: 0.06em;
         color: var(--ink-soft);
-        padding: 0.6rem;
+        background: rgba(42, 26, 14, 0.06);
+        padding: 0.78rem 1rem;
+        border-radius: 999px;
       }
 
-      /* =========  GLOBAL CONTROLS  ========= */
+      /* Restart button shown on every screen except intro */
       .restart-btn {
         position: fixed;
         bottom: calc(env(safe-area-inset-bottom, 0) + 1rem);
@@ -411,145 +525,282 @@
 
   <body data-state="intro">
 
-    <!-- =========  AR SCENE  ·  detection only, no 3D content  ========= -->
+    <!-- ============================================================
+         AR SCENE  ·  camera feed always visible behind everything.
+         The valley animations on the can label trigger when the user
+         enters the 'valley' state.
+         ============================================================ -->
     <a-scene
       mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; uiError: no; uiScanning: no; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 10; warmupTolerance: 4;"
-      renderer="alpha: true; antialias: false; precision: mediump"
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, alpha: true"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
       embedded
     >
+      <a-assets timeout="30000">
+        <img id="img-landscape" src="./assets/landscape.jpg"    crossorigin="anonymous" />
+        <img id="img-wheat"     src="./assets/wheat-orange.png" crossorigin="anonymous" />
+        <img id="img-brewery"   src="./assets/brewery.png"      crossorigin="anonymous" />
+        <img id="img-sun"       src="./assets/sun-rays.png"     crossorigin="anonymous" />
+        <img id="img-mtns"      src="./assets/sun-mountains.png" crossorigin="anonymous" />
+      </a-assets>
+
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-      <a-entity id="target" mindar-image-target="targetIndex: 0"></a-entity>
+      <a-entity light="type: ambient; color: #ffd9a0; intensity: 0.9"></a-entity>
+      <a-entity light="type: directional; color: #fff2c8; intensity: 0.5" position="0.5 1 1"></a-entity>
+
+      <a-entity id="target" mindar-image-target="targetIndex: 0">
+        <a-entity id="valley-scene" billboard position="0 0 0">
+          <a-image src="#img-landscape"
+            position="0 0 -0.05" scale="1.2 2.2 1" opacity="0" transparent="true"
+            animation__op="property: opacity; to: 0.75; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
+            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
+
+          <a-image src="#img-sun"
+            position="0 0.15 -0.04" scale="0 0 0" opacity="0" transparent="true"
+            animation__scale="property: scale; to: 1.4 1.4 1; dur: 1400; easing: easeOutCubic; startEvents: ar-enter"
+            animation__opacity="property: opacity; to: 0.55; dur: 1600; easing: easeOutCubic; startEvents: ar-enter"
+            animation__spin="property: rotation; to: 0 0 360; dur: 38000; loop: true; easing: linear; startEvents: ar-enter"
+            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
+            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
+
+          <a-image src="#img-mtns"
+            position="-0.4 0.08 -0.02" scale="0 0 0" opacity="0" transparent="true"
+            animation__scale="property: scale; to: 0.38 0.30 1; dur: 1200; delay: 600; easing: easeOutCubic; startEvents: ar-enter"
+            animation__op="property: opacity; to: 0.85; dur: 1200; delay: 600; startEvents: ar-enter"
+            animation__bob="property: position; from: -0.4 0.08 -0.02; to: -0.4 0.1 -0.02; dur: 4500; dir: alternate; loop: true; easing: easeInOutSine; startEvents: ar-enter"
+            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
+            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
+
+          <a-image src="#img-brewery"
+            position="0.35 -0.08 -0.02" scale="0 0 0" opacity="0" transparent="true"
+            animation__scale="property: scale; to: 0.30 0.25 1; dur: 1200; delay: 900; easing: easeOutCubic; startEvents: ar-enter"
+            animation__op="property: opacity; to: 0.85; dur: 1200; delay: 900; startEvents: ar-enter"
+            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
+            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
+
+          <a-image src="#img-wheat"
+            position="0 -0.35 0" scale="0 0 0" opacity="0" transparent="true"
+            animation__rise="property: position; from: 0 -0.35 0; to: 0 0 0; dur: 1400; delay: 1100; easing: easeOutBack; startEvents: ar-enter"
+            animation__scale="property: scale; to: 0.42 0.42 1; dur: 1100; delay: 1100; easing: easeOutBack; startEvents: ar-enter"
+            animation__op="property: opacity; to: 0.95; dur: 800; delay: 1100; startEvents: ar-enter"
+            animation__sway="property: rotation; from: 0 0 -3; to: 0 0 3; dur: 5500; dir: alternate; loop: true; easing: easeInOutSine; startEvents: ar-enter"
+            animation__exit_pos="property: position; to: 0 -0.35 0; dur: 500; startEvents: ar-exit"
+            animation__exit_scale="property: scale; to: 0 0 0; dur: 500; startEvents: ar-exit"
+            animation__exit_op="property: opacity; to: 0; dur: 500; startEvents: ar-exit"></a-image>
+
+          <a-entity id="particles">
+            <a-circle radius="0.006" color="#ffd07a" opacity="0" position="-0.15 -0.25 0.01"
+              animation__up="property: position; from: -0.15 -0.3 0.01; to: -0.18 0.4 0.01; dur: 6500; loop: true; easing: linear; delay: 1500; startEvents: ar-enter"
+              animation__fade="property: opacity; from: 0; to: 0.85; dur: 1800; dir: alternate; loop: true; delay: 1500; startEvents: ar-enter"></a-circle>
+            <a-circle radius="0.004" color="#fff0c2" opacity="0" position="0.13 -0.25 0.01"
+              animation__up="property: position; from: 0.13 -0.3 0.01; to: 0.1 0.45 0.01; dur: 7500; loop: true; easing: linear; delay: 2300; startEvents: ar-enter"
+              animation__fade="property: opacity; from: 0; to: 0.7; dur: 2100; dir: alternate; loop: true; delay: 2300; startEvents: ar-enter"></a-circle>
+            <a-circle radius="0.007" color="#ffb86c" opacity="0" position="0.02 -0.25 0.01"
+              animation__up="property: position; from: 0.02 -0.3 0.01; to: 0.04 0.42 0.01; dur: 8200; loop: true; easing: linear; delay: 1900; startEvents: ar-enter"
+              animation__fade="property: opacity; from: 0; to: 0.8; dur: 2500; dir: alternate; loop: true; delay: 1900; startEvents: ar-enter"></a-circle>
+            <a-circle radius="0.005" color="#ffd07a" opacity="0" position="-0.07 -0.25 0.01"
+              animation__up="property: position; from: -0.07 -0.3 0.01; to: -0.09 0.46 0.01; dur: 7000; loop: true; easing: linear; delay: 2700; startEvents: ar-enter"
+              animation__fade="property: opacity; from: 0; to: 0.75; dur: 1900; dir: alternate; loop: true; delay: 2700; startEvents: ar-enter"></a-circle>
+            <a-circle radius="0.005" color="#ffe4a3" opacity="0" position="0.2 -0.25 0.01"
+              animation__up="property: position; from: 0.2 -0.3 0.01; to: 0.18 0.44 0.01; dur: 9000; loop: true; easing: linear; delay: 3100; startEvents: ar-enter"
+              animation__fade="property: opacity; from: 0; to: 0.7; dur: 2300; dir: alternate; loop: true; delay: 3100; startEvents: ar-enter"></a-circle>
+          </a-entity>
+        </a-entity>
+      </a-entity>
     </a-scene>
 
-    <!-- =========  INTRO  ========= -->
+    <!-- ============================================================
+         STATE 1 · INTRO
+         ============================================================ -->
     <section id="screen-intro" class="screen is-active">
-      <div>
-        <h1 class="intro-mark">WELCOME</h1>
-        <p class="intro-sub">Are you ready?</p>
-        <button class="intro-cta" id="start-btn">Scan to enter</button>
-        <p class="intro-hint">No app needed · Camera will open</p>
+      <div class="intro-inner">
+        <h1 class="intro-mark" data-copy="intro.mark">Hello!</h1>
+        <p class="intro-sub"   data-copy="intro.sub">Ready for a new experience?</p>
+        <button class="intro-cta" id="start-btn" data-copy="intro.cta">Scan to enter</button>
+        <p class="intro-hint" data-copy="intro.hint">No app needed · Camera will open</p>
       </div>
     </section>
 
-    <!-- =========  SCAN  ========= -->
+    <!-- ============================================================
+         STATE 2 · SCANNING
+         ============================================================ -->
     <section id="screen-scan" class="screen">
       <div class="scan-frame">
         <i></i><i></i>
-        <div class="scan-hint">Find the can<em>Frame it within</em></div>
+        <div class="scan-hint" data-copy="scan.hint">
+          Find the can
+          <em data-copy="scan.sub">Frame it within</em>
+        </div>
       </div>
+      <button class="dev-skip" id="dev-skip">Skip detect →</button>
     </section>
 
-    <!-- =========  DETECTED  ========= -->
+    <!-- ============================================================
+         STATE 3 · DETECTED PROMPT
+         ============================================================ -->
     <section id="screen-detected" class="screen">
       <div class="prompt-card">
-        <p class="prompt-eyebrow">Alba · Detected</p>
-        <h2 class="prompt-title">Welcome</h2>
-        <p class="prompt-sub">A small ceremony before the first sip.</p>
-        <button class="prompt-cta" id="detected-cta">Tap to continue</button>
-        <p class="prompt-tag">No app needed</p>
+        <p class="prompt-eyebrow">
+          <span data-copy="detected.eyebrow1">Can</span>
+          <span class="dot">·</span>
+          <span data-copy="detected.eyebrow2">Detected</span>
+        </p>
+        <h2 class="prompt-title"  data-copy="detected.title">Welcome</h2>
+        <p  class="prompt-sub"    data-copy="detected.sub">A small ceremony before the first sip.</p>
+        <button class="prompt-cta" id="detected-cta" data-copy="detected.cta">Tap to continue</button>
+        <p  class="prompt-tag"    data-copy="detected.tag">No app needed</p>
       </div>
     </section>
 
-    <!-- =========  VALLEY · fullscreen MP4  ========= -->
+    <!-- ============================================================
+         STATE 4 · VALLEY
+         ============================================================ -->
     <section id="screen-valley" class="screen">
-      <video
-        id="valley-video"
-        class="valley-video"
-        src="./assets/valley-video.mp4"
-        loop
-        muted
-        playsinline
-        webkit-playsinline
-        preload="auto"
-      ></video>
-      <div class="valley-hint">Tap to continue</div>
+      <div class="valley-hint" data-copy="valley.hint">Tap to continue</div>
     </section>
 
-    <!-- =========  CARDS  ========= -->
+    <!-- ============================================================
+         STATE 5 · CARDS
+         ============================================================ -->
     <section id="screen-cards" class="screen">
-      <div class="card-progress" id="card-progress"></div>
+      <div class="card-tap-hint" data-copy="cards.tap">Tap to continue</div>
       <div class="card-stage" id="card-stage"></div>
-      <div class="card-tap-hint">Tap to continue</div>
+      <div class="card-progress" id="card-progress"></div>
     </section>
 
-    <!-- =========  COMMUNITY  ========= -->
+    <!-- ============================================================
+         STATE 6 · COMMUNITY POPUP
+         ============================================================ -->
     <section id="screen-community" class="screen">
       <div class="popup">
-        <div class="popup-num">7,243</div>
-        <p class="popup-line">People already gathered around this mesa</p>
-        <h3 class="popup-title">Leave your trace?</h3>
-        <button class="popup-cta" id="community-join">Join the community</button>
-        <button class="popup-dismiss" id="community-skip">Maybe later</button>
+        <div class="popup-mark">○</div>
+        <div class="popup-num" data-copy="community.num">7,243</div>
+        <p class="popup-line"  data-copy="community.line">People already gathered around this mesa</p>
+        <h3 class="popup-title" data-copy="community.title">Leave your trace?</h3>
+        <button class="popup-cta"     id="community-join" data-copy="community.cta">Join the community</button>
+        <button class="popup-dismiss" id="community-skip" data-copy="community.skip">Maybe later</button>
       </div>
     </section>
 
     <button class="restart-btn" id="restart-btn" title="Restart">↺</button>
 
     <script>
-      /* =========  CONTENT  ========= */
-      const CARDS = [
-        { num: '01', label: 'The beer',       title: 'ALBA',    desc: 'Soft wheat, bright citrus, mid-morning sun.',          color: 'orange', image: './assets/can.png' },
-        { num: '02', label: 'The ingredient', title: 'NARANJA', desc: 'Valencia oranges, picked at the end of winter.',       color: 'olive',  image: './assets/wheat-orange.png' },
-        { num: '03', label: 'The valley',     title: 'ZARRA',   desc: 'A village of 400, a brewery, and a river.',            color: 'amber',  image: './assets/sun-mountains.png' },
-        { num: '04', label: 'The brewer',     title: 'AITOR',   desc: 'Third generation. Vive grande, vive libre.',           color: 'sage',   image: './assets/brewery.png' },
-      ];
+      /* ============================================================
+         CONTENT  ·  ALL editable copy lives here
+         ============================================================ */
+      const CONTENT = {
+        intro: {
+          mark:  'Welcome',
+          sub:   'Are You Ready?',
+          cta:   'Scan to enter',
+          hint:  'No app needed · Camera will open',
+        },
+        scan: {
+          hint:  'Find the can',
+          sub:   'Frame it within',
+        },
+        detected: {
+          eyebrow1: 'Beer',
+          eyebrow2: 'Detected',
+          title:    'Welcome',
+          sub:      'A small ceremony before the first sip.',
+          cta:      'Tap to continue',
+          tag:      'No app needed',
+        },
+        valley: { hint: 'Tap to continue' },
+        cards: {
+          tap: 'Tap to continue',
+          items: [
+            { number: '01', label: 'The beer',       title: 'ALBA',
+              desc:  'Soft wheat, bright citrus, mid-morning sun.',
+              color: 'orange', image: './assets/can.png' },
+            { number: '02', label: 'The ingredient', title: 'NARANJA',
+              desc:  'Valencia oranges, picked at the end of winter.',
+             color: 'olive',  image: './assets/wheat-orange.png' },
+            { number: '03', label: 'The valley',     title: 'ZARRA',
+              desc:  'A village of 400, a brewery, and a river.',
+              color: 'amber',  image: './assets/sun-mountains.png' },
+            { number: '04', label: 'The brewer',     title: 'AITOR',
+              desc:  'Third generation. Vive grande, vive libre.',
+              color: 'sage',   image: './assets/brewery.png' },
+          ],
+        },
+        community: {
+          num:    '7,243',
+          line:   'People already gathered around this mesa',
+          title:  'Leave your trace?',
+          cta:    'Join the community',
+          skip:   'Maybe later',
+          joinUrl: 'https://www.cerveceriadezarra.es',
+        },
+      };
 
-      const JOIN_URL = 'https://www.cerveceriadezarra.es';
+      /* Substitute copy from CONTENT into every [data-copy="path.to.key"] */
+      document.querySelectorAll('[data-copy]').forEach((el) => {
+        const path = el.getAttribute('data-copy').split('.');
+        let v = CONTENT;
+        for (const k of path) v = v && v[k];
+        if (v != null) el.textContent = v;
+      });
 
-      /* =========  CARD RENDERING  ========= */
+      /* ============================================================
+         CARD RENDERING
+         ============================================================ */
       const cardStage    = document.getElementById('card-stage');
       const cardProgress = document.getElementById('card-progress');
-      CARDS.forEach((c, i) => {
+
+      CONTENT.cards.items.forEach((c, i) => {
         const el = document.createElement('div');
         el.className = 'card';
-        el.dataset.color = c.color;
         el.dataset.card  = i;
+        el.dataset.color = c.color;
         el.innerHTML = `
           <div class="card-art"><img src="${c.image}" alt="${c.title}"></div>
-          <div class="card-meta">/ ${c.num} · ${c.label}</div>
+          <div class="card-meta">
+            <span class="slash">/</span>
+            <span class="num">${c.number}</span>
+            <span>·</span>
+            <span>${c.label}</span>
+          </div>
           <h2 class="card-title">${c.title}</h2>
           <p class="card-desc">${c.desc}</p>
         `;
         cardStage.appendChild(el);
+
         const dot = document.createElement('span');
         dot.className = 'dot';
         cardProgress.appendChild(dot);
       });
 
-      /* =========  STATE MACHINE  ========= */
+      /* ============================================================
+         STATE MACHINE
+         ============================================================ */
       const STATES = ['intro', 'scan', 'detected', 'valley', 'cards', 'community'];
       let state = 'intro';
       let cardIndex = 0;
 
       const body   = document.body;
       const scene  = document.querySelector('a-scene');
-      const target = document.getElementById('target');
-      const video  = document.getElementById('valley-video');
-
-      function setScreen(next) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('is-active'));
-        document.getElementById('screen-' + next).classList.add('is-active');
-        body.dataset.state = next;
-        state = next;
-      }
+      const target = document.querySelector('#target');
 
       function goTo(next) {
         if (next === state) return;
-        if (next === 'valley') playValley();
-        else pauseValley();
-        setScreen(next);
-      }
-
-      function playValley() {
-        try { video.currentTime = 0; } catch (e) {}
-        const p = video.play();
-        if (p && p.catch) p.catch(err => console.warn('valley video play failed:', err));
-      }
-
-      function pauseValley() {
-        try { video.pause(); } catch (e) {}
+        if (next === 'valley') {
+          target.querySelectorAll('a-image, a-circle').forEach((c) =>
+            c.dispatchEvent(new CustomEvent('ar-enter'))
+          );
+        }
+        if (state === 'valley' && next !== 'valley') {
+          target.querySelectorAll('a-image, a-circle').forEach((c) =>
+            c.dispatchEvent(new CustomEvent('ar-exit'))
+          );
+        }
+        document.querySelectorAll('.screen').forEach((s) => s.classList.remove('is-active'));
+        document.getElementById('screen-' + next).classList.add('is-active');
+        body.dataset.state = next;
+        state = next;
       }
 
       function showCard(idx) {
@@ -563,31 +814,21 @@
         });
       }
 
-      /* =========  WIRING  ========= */
+      /* ============================================================
+         WIRING
+         ============================================================ */
       document.getElementById('start-btn').addEventListener('click', async () => {
-        // Unlock video playback inside the user gesture
-        try {
-          video.muted = true;
-          video.playsInline = true;
-          await video.play();
-          video.pause();
-          video.currentTime = 0;
-        } catch (e) {
-          console.warn('video prime failed:', e);
-        }
-
-        setScreen('scan');
-
+        goTo('scan');
         const startMindAR = async () => {
           try {
             const sys = scene.systems['mindar-image-system'];
             if (sys && sys.start) await sys.start();
-          } catch (err) {
-            console.error('mindar start failed:', err);
+          } catch (e) {
+            console.error('mindar start failed:', e);
             alert('Could not start the camera. Please allow camera access and reload.');
           }
         };
-        if (scene.hasLoaded) startMindAR();
+        if (scene.hasLoaded) await startMindAR();
         else scene.addEventListener('loaded', startMindAR, { once: true });
       });
 
@@ -607,12 +848,14 @@
 
       document.getElementById('screen-cards').addEventListener('click', (e) => {
         if (e.target.closest('.restart-btn')) return;
-        if (cardIndex < CARDS.length - 1) showCard(cardIndex + 1);
+        if (cardIndex < CONTENT.cards.items.length - 1) showCard(cardIndex + 1);
         else goTo('community');
       });
 
       document.getElementById('community-join').addEventListener('click', () => {
-        window.open(JOIN_URL, '_blank', 'noopener');
+        if (CONTENT.community.joinUrl) {
+          window.open(CONTENT.community.joinUrl, '_blank', 'noopener');
+        }
       });
       document.getElementById('community-skip').addEventListener('click', restart);
       document.getElementById('restart-btn').addEventListener('click', restart);
@@ -623,7 +866,38 @@
         goTo('scan');
       }
 
-      /* =========  HTTPS GUARD  ========= */
+      /* ============================================================
+         DEBUG MODE  ·  add ?debug to the URL
+            ← / →  cycle states
+            Skip button appears in scan state
+         ============================================================ */
+      if (location.search.includes('debug')) {
+        body.classList.add('is-debug');
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowRight' || e.key === ' ') advance();
+          else if (e.key === 'ArrowLeft')              retreat();
+        });
+        document.getElementById('dev-skip').addEventListener('click', () => {
+          if (state === 'scan') goTo('detected');
+        });
+      }
+      function advance() {
+        if      (state === 'intro')    document.getElementById('start-btn').click();
+        else if (state === 'scan')     goTo('detected');
+        else if (state === 'detected') goTo('valley');
+        else if (state === 'valley')   { goTo('cards'); showCard(0); }
+        else if (state === 'cards') {
+          if (cardIndex < CONTENT.cards.items.length - 1) showCard(cardIndex + 1);
+          else goTo('community');
+        }
+        else if (state === 'community') restart();
+      }
+      function retreat() {
+        const i = STATES.indexOf(state);
+        if (i > 0) goTo(STATES[i - 1]);
+      }
+
+      /* HTTPS guard ---------------------------------------------- */
       if (
         location.protocol !== 'https:' &&
         location.hostname !== 'localhost' &&
