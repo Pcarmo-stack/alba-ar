@@ -3,32 +3,82 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1a1208" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Zarra · Alba AR</title>
 
-  <!-- A-Frame first -->
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Custom components registered BEFORE MindAR -->
+  <!--
+    ════════════════════════════════════════════════════════════════
+    CUSTOM COMPONENT — must register BEFORE MindAR loads.
+    Creates a VideoTexture, mounts it on the plane's mesh material,
+    and forces texture.needsUpdate every tick (required on iOS).
+    ════════════════════════════════════════════════════════════════
+  -->
   <script>
-    /* Forces VideoTexture to upload a new frame every render tick.
-       Required on iOS where VideoTexture.needsUpdate is not set automatically. */
-    AFRAME.registerComponent('video-texture-tick', {
-      tick: function () {
-        var mesh = this.el.getObject3D('mesh');
-        if (!mesh) return;
-        mesh.traverse(function (node) {
-          if (node.isMesh && node.material && node.material.map) {
-            node.material.map.needsUpdate = true;
-          }
+    AFRAME.registerComponent('ar-video-surface', {
+      schema: { src: { type: 'selector' } },
+
+      init: function () {
+        var video = this.data.src;
+        if (!video) {
+          console.warn('ar-video-surface: no video element supplied');
+          return;
+        }
+
+        var tex = new THREE.VideoTexture(video);
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+
+        var mat = new THREE.MeshBasicMaterial({
+          map: tex,
+          side: THREE.DoubleSide,
+          toneMapped: false,
+          transparent: false
         });
+
+        this.texture  = tex;
+        this.material = mat;
+        this.applied  = false;
+
+        var self = this;
+        var apply = function () {
+          var mesh = self.el.getObject3D('mesh');
+          if (!mesh) { return; }
+          mesh.traverse(function (n) { if (n.isMesh) { n.material = mat; } });
+          self.applied = true;
+        };
+
+        this.el.addEventListener('object3dset', apply);
+        apply();
+      },
+
+      tick: function () {
+        if (this.texture && this.applied) {
+          this.texture.needsUpdate = true;
+        } else if (!this.applied) {
+          // Re-apply if mesh wasn't ready at init time
+          var mesh = this.el.getObject3D('mesh');
+          if (mesh) {
+            var mat = this.material;
+            mesh.traverse(function (n) { if (n.isMesh) { n.material = mat; } });
+            this.applied = true;
+          }
+        }
+      },
+
+      remove: function () {
+        if (this.texture)  { this.texture.dispose(); }
+        if (this.material) { this.material.dispose(); }
       }
     });
   </script>
 
-  <!-- MindAR after custom components -->
+  <!-- MindAR after our component -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -37,23 +87,20 @@
 
   <style>
     :root {
-      --orange:  #E48043;
-      --olive:   #9C963A;
-      --amber:   #D9A032;
-      --sage:    #8FA38C;
-      --paper:   #FBF5E6;
-      --ink:     #2A1A0E;
-      --muted:   rgba(42,26,14,0.6);
-      --bg:      #1a1208;
-      --fd:      'Megrim', cursive;
-      --fb:      'Nunito', system-ui, sans-serif;
-      --ease:    cubic-bezier(0.16,1,0.3,1);
+      --orange: #E48043;
+      --olive:  #9C963A;
+      --amber:  #D9A032;
+      --sage:   #8FA38C;
+      --paper:  #FBF5E6;
+      --ink:    #2A1A0E;
+      --muted:  rgba(42,26,14,0.6);
+      --bg:     #1a1208;
+      --fd:     'Megrim', cursive;
+      --fb:     'Nunito', system-ui, sans-serif;
+      --ease:   cubic-bezier(0.16,1,0.3,1);
     }
 
-    *, *::before, *::after {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
       margin: 0; padding: 0;
       width: 100%; height: 100%;
@@ -62,19 +109,20 @@
       font-family: var(--fb);
       -webkit-font-smoothing: antialiased;
     }
-    button {
-      appearance: none; border: 0; background: none;
-      cursor: pointer; font: inherit; color: inherit;
-    }
+    button { appearance: none; border: 0; background: none; cursor: pointer; font: inherit; color: inherit; }
 
-    /* AR scene is always the bottom layer */
+    /* ─────────  AR scene is the always-present base layer  ───────── */
     a-scene {
       position: fixed !important;
       inset: 0 !important;
       z-index: 1;
     }
 
-    /* ── OVERLAY SYSTEM ──────────────────────────────── */
+    /* ─────────  OVERLAY SYSTEM  ─────────
+       Every UI screen is a fixed div above the AR scene.
+       Opacity/visibility transitions only — the AR scene
+       beneath them never unmounts.
+    ─────────────────────────────────────── */
     .ui {
       position: fixed;
       inset: 0;
@@ -89,20 +137,21 @@
       pointer-events: none;
       transition: opacity 320ms var(--ease), visibility 320ms var(--ease);
     }
-    .ui.active {
+    .ui.show {
       opacity: 1;
       visibility: visible;
       pointer-events: auto;
     }
+    /* Transparent UI screens keep AR visible underneath */
+    .ui.transparent { background: transparent; }
 
-    /* ── INTRO ───────────────────────────────────────── */
+    /* ─────────  INTRO  ───────── */
     #ui-intro {
       z-index: 50;
       background: radial-gradient(ellipse at 50% 38%, #3a240e 0%, #1a1208 70%);
       text-align: center;
-      gap: 0;
     }
-    .intro-mark {
+    .intro-title {
       font-family: var(--fd);
       font-size: clamp(2.8rem, 11vw, 4.4rem);
       letter-spacing: 0.18em;
@@ -116,7 +165,7 @@
       color: rgba(253,246,227,0.6);
       margin: 0 0 2rem;
     }
-    .btn-cta {
+    .btn-primary {
       font-family: var(--fd);
       font-size: clamp(1rem, 4vw, 1.25rem);
       letter-spacing: 0.22em;
@@ -127,7 +176,7 @@
       box-shadow: 0 8px 28px rgba(228,128,67,0.35);
       transition: transform 150ms;
     }
-    .btn-cta:active { transform: scale(0.97); }
+    .btn-primary:active { transform: scale(0.97); }
     .intro-hint {
       margin-top: 1.4rem;
       font-size: 0.68rem;
@@ -136,11 +185,7 @@
       color: rgba(253,246,227,0.35);
     }
 
-    /* ── SCAN ─────────────────────────────────────────── */
-    #ui-scan {
-      background: transparent;
-      pointer-events: none; /* clicks pass to AR scene */
-    }
+    /* ─────────  SCAN  ───────── */
     .scan-frame {
       position: relative;
       width: min(70vw, 280px);
@@ -155,10 +200,10 @@
       width: 22px; height: 22px;
       border: 2px solid var(--orange);
     }
-    .scan-frame::before { top:-1px; left:-1px;   border-right:0; border-bottom:0; }
-    .scan-frame::after  { top:-1px; right:-1px;  border-left:0;  border-bottom:0; }
-    .scan-frame > i:nth-child(1) { bottom:-1px; left:-1px;  border-right:0; border-top:0; }
-    .scan-frame > i:nth-child(2) { bottom:-1px; right:-1px; border-left:0;  border-top:0; }
+    .scan-frame::before          { top:-1px;    left:-1px;   border-right: 0; border-bottom: 0; }
+    .scan-frame::after           { top:-1px;    right:-1px;  border-left: 0;  border-bottom: 0; }
+    .scan-frame > i:nth-child(1) { bottom:-1px; left:-1px;   border-right: 0; border-top: 0; }
+    .scan-frame > i:nth-child(2) { bottom:-1px; right:-1px;  border-left: 0;  border-top: 0; }
     .scan-label {
       position: absolute;
       top: calc(100% + 1.4rem);
@@ -169,6 +214,7 @@
       color: #fdf6e3;
       white-space: nowrap;
       text-align: center;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
     }
     .scan-label em {
       display: block;
@@ -181,12 +227,12 @@
       margin-top: 0.4rem;
     }
     @keyframes pulse {
-      0%,100% { opacity:1;   transform:scale(1); }
-      50%      { opacity:0.5; transform:scale(1.03); }
+      0%, 100% { opacity: 1;   transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(1.03); }
     }
 
-    /* ── DETECTED ─────────────────────────────────────── */
-    #ui-detected { background: rgba(0,0,0,0.5); }
+    /* ─────────  DETECTED  ───────── */
+    #ui-detected { background: rgba(0,0,0,0.45); }
     .det-card {
       background: var(--paper);
       border-radius: 18px;
@@ -215,15 +261,25 @@
       color: var(--muted);
       margin: 0 0 1.3rem;
     }
+    .det-cta {
+      display: block; width: 100%;
+      font-family: var(--fd);
+      font-size: 1rem;
+      letter-spacing: 0.2em;
+      color: #fdf6e3;
+      background: var(--orange);
+      padding: 0.85rem;
+      border-radius: 999px;
+    }
+    .det-cta:active { transform: scale(0.97); }
 
-    /* ── VALLEY HINT (sits over AR video) ────────────── */
+    /* ─────────  VALLEY HINT (overlays the AR video plane)  ───────── */
     #ui-valley {
-      background: transparent;
       justify-content: flex-end;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0) + 2rem);
+      padding-bottom: calc(env(safe-area-inset-bottom,0) + 2rem);
       pointer-events: none;
     }
-    #ui-valley.active { pointer-events: auto; }
+    #ui-valley.show { pointer-events: auto; }
     .valley-hint {
       font-family: var(--fd);
       font-size: clamp(0.9rem, 3.5vw, 1.1rem);
@@ -233,9 +289,9 @@
       animation: pulse 2s ease-in-out infinite;
     }
 
-    /* ── CARDS ───────────────────────────────────────── */
+    /* ─────────  CARDS  ───────── */
     #ui-cards {
-      background: rgba(0,0,0,0.6);
+      background: rgba(10,7,3,0.85);
       padding: 0;
       align-items: stretch;
     }
@@ -243,7 +299,8 @@
       position: absolute;
       top: calc(env(safe-area-inset-top,0) + 1rem);
       left: 50%; transform: translateX(-50%);
-      display: flex; gap: 0.4rem; z-index: 1;
+      display: flex; gap: 0.4rem;
+      z-index: 2;
     }
     .cards-progress .dot {
       width: 6px; height: 6px; border-radius: 50%;
@@ -283,7 +340,7 @@
     .card-meta  { font-size: 0.65rem; letter-spacing: 0.26em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.4rem; }
     .card-title { font-family: var(--fd); font-size: clamp(1.8rem,7vw,2.4rem); letter-spacing: 0.1em; color: var(--ink); margin: 0 0 0.4rem; }
     .card-desc  { font-size: 0.9rem; line-height: 1.45; color: var(--muted); margin: 0; }
-    .cards-tap  {
+    .cards-tap {
       position: absolute;
       bottom: calc(env(safe-area-inset-bottom,0) + 1.2rem);
       left: 50%; transform: translateX(-50%);
@@ -291,7 +348,7 @@
       text-transform: uppercase; color: rgba(253,246,227,0.5);
     }
 
-    /* ── COMMUNITY ───────────────────────────────────── */
+    /* ─────────  COMMUNITY  ───────── */
     #ui-community { background: var(--bg); }
     .popup {
       background: var(--paper);
@@ -304,14 +361,22 @@
     .popup-line  { font-size: 0.86rem; color: var(--muted); margin: 0.3rem 0 0.9rem; }
     .popup-title { font-family: var(--fd); font-size: clamp(1.5rem,6vw,2rem); letter-spacing: 0.08em; color: var(--ink); margin: 0 0 1.1rem; }
     .popup-cta {
-      display: block; width: 100%; padding: 0.85rem;
-      font-family: var(--fd); font-size: 1rem; letter-spacing: 0.2em;
+      display: block; width: 100%;
+      padding: 0.85rem;
+      font-family: var(--fd); font-size: 1rem;
+      letter-spacing: 0.2em;
       color: #fdf6e3; background: var(--orange);
       border-radius: 999px; margin-bottom: 0.7rem;
     }
-    .popup-dismiss { width: 100%; font-size: 0.78rem; letter-spacing: 0.06em; color: var(--muted); padding: 0.6rem; }
+    .popup-dismiss {
+      width: 100%;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      padding: 0.6rem;
+    }
 
-    /* ── RESTART BUTTON ──────────────────────────────── */
+    /* ─────────  RESTART BUTTON  ───────── */
     .restart-btn {
       position: fixed;
       bottom: calc(env(safe-area-inset-bottom,0) + 1rem);
@@ -332,10 +397,14 @@
 
 <body data-state="intro">
 
-  <!-- ══════════════════════════════════════════════
-       AR SCENE — runs the entire session, never restarts
-       ══════════════════════════════════════════════ -->
+  <!--
+    ════════════════════════════════════════════════════════════════
+    AR SCENE — created once, runs for the entire session.
+    Never restarted. UI overlays sit on top.
+    ════════════════════════════════════════════════════════════════
+  -->
   <a-scene
+    id="ar-scene"
     mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; uiError: no; uiScanning: no; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 10; warmupTolerance: 5"
     renderer="colorManagement: true; antialias: false; alpha: true; precision: mediump"
     color-space="sRGB"
@@ -343,294 +412,344 @@
     device-orientation-permission-ui="enabled: false"
     embedded
   >
-    <a-assets timeout="10000">
-      <!-- Video NOT set to autoplay — we control playback entirely in JS -->
+    <a-assets timeout="8000">
       <video
-        id="ar-vid"
+        id="valley-vid"
         src="./assets/valley-video.mp4"
         muted
         playsinline
         webkit-playsinline
         loop
         preload="auto"
+        crossorigin="anonymous"
       ></video>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <a-entity id="target" mindar-image-target="targetIndex: 0">
+    <a-entity id="ar-target" mindar-image-target="targetIndex: 0">
       <!--
-        <a-video> plane anchored to the detected marker.
-        video-texture-tick forces needsUpdate every frame (required on iOS).
-        Initially invisible; shown only after user taps "Tap to continue".
+        Video-textured plane anchored to the marker.
+        Hidden by default — only shown after user taps "Tap to continue".
+        ar-video-surface wires a THREE.VideoTexture and forces needsUpdate per tick.
       -->
-      <a-video
+      <a-plane
         id="ar-video-plane"
-        src="#ar-vid"
-        width="1.2"
-        height="0.675"
         position="0 0 0.01"
-        video-texture-tick
+        width="1"
+        height="0.56"
         visible="false"
-      ></a-video>
+        ar-video-surface="src: #valley-vid"
+      ></a-plane>
     </a-entity>
   </a-scene>
 
 
-  <!-- ══════════════════════════════════════════════
-       UI OVERLAYS — sit above AR, never replace it
-       ══════════════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════════════════════════════
+       UI OVERLAYS
+       ══════════════════════════════════════════════════════════════ -->
 
-  <!-- 1. INTRO -->
-  <div id="ui-intro" class="ui active">
-    <h1 class="intro-mark">WELCOME</h1>
+  <!-- 1 · INTRO -->
+  <div id="ui-intro" class="ui show">
+    <h1 class="intro-title">WELCOME</h1>
     <p class="intro-sub">Are you ready?</p>
-    <button class="btn-cta" id="start-btn">Scan to enter</button>
+    <button class="btn-primary" id="btn-start">Scan to enter</button>
     <p class="intro-hint">No app needed · Camera will open</p>
   </div>
 
-  <!-- 2. SCAN -->
-  <div id="ui-scan" class="ui">
+  <!-- 2 · SCAN — transparent, AR camera visible behind -->
+  <div id="ui-scan" class="ui transparent">
     <div class="scan-frame">
       <i></i><i></i>
       <p class="scan-label">Find the can<em>Frame it within</em></p>
     </div>
   </div>
 
-  <!-- 3. DETECTED -->
+  <!-- 3 · DETECTED -->
   <div id="ui-detected" class="ui">
     <div class="det-card">
       <p class="det-eyebrow">Alba · Detected</p>
       <h2 class="det-title">Welcome</h2>
       <p class="det-sub">A small ceremony before the first sip.</p>
-      <button class="btn-cta" id="detected-cta" style="width:100%;display:block">Tap to continue</button>
+      <button class="det-cta" id="btn-detected">Tap to continue</button>
     </div>
   </div>
 
-  <!-- 4. VALLEY HINT — AR video plays behind this -->
-  <div id="ui-valley" class="ui">
+  <!-- 4 · VALLEY — transparent overlay over the AR video plane -->
+  <div id="ui-valley" class="ui transparent">
     <p class="valley-hint">Tap to continue</p>
   </div>
 
-  <!-- 5. CARDS -->
+  <!-- 5 · CARDS -->
   <div id="ui-cards" class="ui">
     <div class="cards-progress" id="cards-progress"></div>
     <div class="cards-stage" id="cards-stage"></div>
     <div class="cards-tap">Tap to continue</div>
   </div>
 
-  <!-- 6. COMMUNITY -->
+  <!-- 6 · COMMUNITY -->
   <div id="ui-community" class="ui">
     <div class="popup">
       <div class="popup-num">7,243</div>
       <p class="popup-line">People already gathered around this mesa</p>
       <h3 class="popup-title">Leave your trace?</h3>
-      <button class="popup-cta" id="join-btn">Join the community</button>
-      <button class="popup-dismiss" id="skip-btn">Maybe later</button>
+      <button class="popup-cta" id="btn-join">Join the community</button>
+      <button class="popup-dismiss" id="btn-skip">Maybe later</button>
     </div>
   </div>
 
-  <button class="restart-btn" id="restart-btn" title="Restart">↺</button>
+  <button class="restart-btn" id="btn-restart" title="Restart">↺</button>
 
 
   <script>
     'use strict';
 
-    /* ── CONTENT ─────────────────────────────────────── */
+    /* ═══════════════════════════════════════════════════════════════
+       VIDEO MANAGER  —  iOS-safe playback
+       ═══════════════════════════════════════════════════════════════ */
+    var Video = (function () {
+      var vid;
+      var unlocked   = false;
+      var inFlight   = false;
+
+      function init(el) {
+        vid = el;
+        vid.muted       = true;
+        vid.playsInline = true;
+        vid.setAttribute('playsinline', '');
+        vid.setAttribute('webkit-playsinline', '');
+      }
+
+      /* Phase 1: prime iOS autoplay permissions inside a user gesture */
+      function unlock() {
+        if (unlocked || !vid) { return Promise.resolve(); }
+        var p = vid.play();
+        if (!p || typeof p.then !== 'function') {
+          unlocked = true;
+          console.log('VIDEO: unlocked (legacy)');
+          return Promise.resolve();
+        }
+        return p.then(function () {
+          vid.pause();
+          vid.currentTime = 0;
+          unlocked = true;
+          console.log('VIDEO: unlocked');
+        }).catch(function (err) {
+          console.warn('VIDEO: unlock failed', err);
+        });
+      }
+
+      /* Phase 2: actual playback. Single-flight + one retry after 300ms. */
+      function play() {
+        if (!vid || inFlight) { return; }
+        inFlight = true;
+
+        try { vid.currentTime = 0; } catch (e) {}
+        var p = vid.play();
+
+        if (!p || typeof p.then !== 'function') {
+          inFlight = false;
+          console.log('VIDEO: play success (legacy)');
+          return;
+        }
+        p.then(function () {
+          inFlight = false;
+          console.log('VIDEO: play success');
+        }).catch(function (err) {
+          inFlight = false;
+          console.warn('VIDEO: play failed', err);
+          console.log('VIDEO: retry triggered');
+          setTimeout(function () {
+            var p2 = vid.play();
+            if (p2 && typeof p2.then === 'function') {
+              p2.then(function () { console.log('VIDEO: play success (retry)'); })
+                .catch(function (e2) { console.warn('VIDEO: play failed (retry)', e2); });
+            }
+          }, 300);
+        });
+      }
+
+      function pause() {
+        if (!vid) { return; }
+        try { vid.pause(); } catch (e) {}
+      }
+
+      return { init: init, unlock: unlock, play: play, pause: pause };
+    })();
+
+    /* ═══════════════════════════════════════════════════════════════
+       UI STATE  —  pure overlay switching, never touches AR
+       ═══════════════════════════════════════════════════════════════ */
+    var UI = (function () {
+      var current = 'intro';
+
+      function show(id) {
+        var screens = document.querySelectorAll('.ui');
+        for (var i = 0; i < screens.length; i++) { screens[i].classList.remove('show'); }
+        var el = document.getElementById('ui-' + id);
+        if (el) { el.classList.add('show'); }
+        current = id;
+        document.body.dataset.state = id;
+      }
+
+      function state() { return current; }
+      return { show: show, state: state };
+    })();
+
+    /* ═══════════════════════════════════════════════════════════════
+       CARDS  —  HTML-only data → DOM
+       ═══════════════════════════════════════════════════════════════ */
     var CARDS = [
       { num:'01', label:'The beer',       title:'ALBA',    desc:'Soft wheat, bright citrus, mid-morning sun.',    color:'orange', img:'./assets/can.png' },
       { num:'02', label:'The ingredient', title:'NARANJA', desc:'Valencia oranges, picked at the end of winter.', color:'olive',  img:'./assets/wheat-orange.png' },
       { num:'03', label:'The valley',     title:'ZARRA',   desc:'A village of 400, a brewery, and a river.',      color:'amber',  img:'./assets/sun-mountains.png' },
       { num:'04', label:'The brewer',     title:'AITOR',   desc:'Third generation. Vive grande, vive libre.',     color:'sage',   img:'./assets/brewery.png' },
     ];
+    var cardIdx = 0;
 
-    /* ── BUILD CARDS ─────────────────────────────────── */
-    var cardsStage    = document.getElementById('cards-stage');
-    var cardsProgress = document.getElementById('cards-progress');
-    CARDS.forEach(function (c, i) {
-      var el = document.createElement('div');
-      el.className = 'card';
-      el.dataset.color = c.color;
-      el.innerHTML =
-        '<div class="card-art"><img src="' + c.img + '" alt="' + c.title + '"></div>' +
-        '<p class="card-meta">/ ' + c.num + ' · ' + c.label + '</p>' +
-        '<h2 class="card-title">' + c.title + '</h2>' +
-        '<p class="card-desc">' + c.desc + '</p>';
-      cardsStage.appendChild(el);
-      var dot = document.createElement('span');
-      dot.className = 'dot';
-      cardsProgress.appendChild(dot);
-    });
-
-    /* ── VIDEO PLAYBACK (iOS-safe) ───────────────────── */
-    var vid          = document.getElementById('ar-vid');
-    var videoPlane   = document.getElementById('ar-video-plane');
-    var videoUnlocked = false;
-    var playInFlight  = false;
-
-    /*
-     * UNLOCK PHASE — must run inside the FIRST user gesture.
-     * play() → pause() → reset primes iOS autoplay permission.
-     */
-    function unlockVideo() {
-      if (videoUnlocked) { return Promise.resolve(); }
-      return vid.play()
-        .then(function () {
-          vid.pause();
-          vid.currentTime = 0;
-          videoUnlocked = true;
-          console.log('VIDEO: unlocked');
-        })
-        .catch(function (err) {
-          console.warn('VIDEO: unlock failed', err);
-        });
-    }
-
-    /* Safe play with single-flight guard and one 300 ms retry */
-    function safePlay() {
-      if (playInFlight) { return; }
-      playInFlight = true;
-      vid.currentTime = 0;
-
-      var p = vid.play();
-      if (p && typeof p.then === 'function') {
-        p.then(function () {
-          playInFlight = false;
-          videoPlane.setAttribute('visible', true);
-          console.log('VIDEO: play success');
-        }).catch(function (err) {
-          playInFlight = false;
-          console.warn('VIDEO: play failed', err);
-          console.log('VIDEO: retry triggered');
-          setTimeout(function () {
-            vid.play()
-              .then(function () {
-                videoPlane.setAttribute('visible', true);
-                console.log('VIDEO: play success (retry)');
-              })
-              .catch(function (e2) { console.warn('VIDEO: retry failed', e2); });
-          }, 300);
-        });
-      } else {
-        /* Older WebKit — play() returns undefined */
-        playInFlight = false;
-        videoPlane.setAttribute('visible', true);
-      }
-    }
-
-    function safePause() {
-      playInFlight = false;
-      try { vid.pause(); } catch (e) {}
-    }
-
-    /* ── UI STATE ────────────────────────────────────── */
-    var uiState  = 'intro';
-    var cardIdx  = 0;
-
-    function showUI(id) {
-      document.querySelectorAll('.ui').forEach(function (el) {
-        el.classList.remove('active');
+    (function buildCards() {
+      var stage    = document.getElementById('cards-stage');
+      var progress = document.getElementById('cards-progress');
+      CARDS.forEach(function (c) {
+        var el = document.createElement('div');
+        el.className = 'card';
+        el.dataset.color = c.color;
+        el.innerHTML =
+          '<div class="card-art"><img src="' + c.img + '" alt="' + c.title + '"></div>' +
+          '<p class="card-meta">/ ' + c.num + ' · ' + c.label + '</p>' +
+          '<h2 class="card-title">' + c.title + '</h2>' +
+          '<p class="card-desc">' + c.desc + '</p>';
+        stage.appendChild(el);
+        var dot = document.createElement('span');
+        dot.className = 'dot';
+        progress.appendChild(dot);
       });
-      var el = document.getElementById(id);
-      if (el) { el.classList.add('active'); }
-      var state = id.replace('ui-', '');
-      document.body.dataset.state = state;
-      uiState = state;
-    }
+    })();
 
-    function showCard(idx) {
-      cardIdx = idx;
-      document.querySelectorAll('.card').forEach(function (el, i) {
-        el.classList.toggle('is-current', i === idx);
-        el.classList.toggle('is-past',    i <  idx);
+    function showCard(i) {
+      cardIdx = i;
+      document.querySelectorAll('.card').forEach(function (el, idx) {
+        el.classList.toggle('is-current', idx === i);
+        el.classList.toggle('is-past',    idx <  i);
       });
-      document.querySelectorAll('.cards-progress .dot').forEach(function (d, i) {
-        d.classList.toggle('on', i === idx);
+      document.querySelectorAll('.cards-progress .dot').forEach(function (d, idx) {
+        d.classList.toggle('on', idx === i);
       });
     }
 
-    /* ── AR LIFECYCLE ────────────────────────────────── */
-    var scene  = document.querySelector('a-scene');
-    var target = document.getElementById('target');
+    /* ═══════════════════════════════════════════════════════════════
+       AR LIFECYCLE  —  started once, never stopped
+       ═══════════════════════════════════════════════════════════════ */
+    var scene       = document.getElementById('ar-scene');
+    var target      = document.getElementById('ar-target');
+    var videoPlane  = document.getElementById('ar-video-plane');
+    var arStarted   = false;
 
     function startAR() {
-      if (scene.hasLoaded) { doStartAR(); }
-      else { scene.addEventListener('loaded', doStartAR, { once: true }); }
+      if (arStarted) { return; }
+      arStarted = true;
+
+      var go = function () {
+        var sys = scene.systems['mindar-image-system'];
+        if (!sys) {
+          console.error('AR: mindar-image-system not found');
+          return;
+        }
+        sys.start()
+          .then(function () { console.log('AR: system started'); })
+          .catch(function (err) {
+            console.error('AR: start failed', err);
+            arStarted = false;
+            alert('Camera access required. Please allow camera access and reload.');
+          });
+      };
+
+      if (scene.hasLoaded) { go(); }
+      else { scene.addEventListener('loaded', go, { once: true }); }
     }
 
-    function doStartAR() {
-      var sys = scene.systems['mindar-image-system'];
-      if (!sys) { console.warn('AR: mindar system not found'); return; }
-      sys.start()
-        .then(function () { console.log('AR: system started'); })
-        .catch(function (err) {
-          console.error('AR: start failed', err);
-          alert('Camera access required. Please allow camera access and reload.');
-        });
-    }
-
+    /* targetFound / targetLost ONLY update UI and video state.
+       They never restart MindAR or unmount the scene. */
     target.addEventListener('targetFound', function () {
       console.log('AR: target found');
-      if (uiState === 'scan') { showUI('ui-detected'); }
-      /* Resume video if user returns to valley state after losing target */
-      if (uiState === 'valley') { safePlay(); }
+      var s = UI.state();
+      if (s === 'scan') {
+        UI.show('detected');
+      } else if (s === 'valley') {
+        Video.play();
+      }
     });
 
     target.addEventListener('targetLost', function () {
       console.log('AR: target lost');
-      if (uiState === 'detected') { showUI('ui-scan'); }
-      if (uiState === 'valley')   { safePause(); }
+      var s = UI.state();
+      if (s === 'detected') {
+        UI.show('scan');
+      } else if (s === 'valley') {
+        Video.pause();
+      }
     });
 
-    /* ── BUTTON WIRING ───────────────────────────────── */
-    document.getElementById('start-btn').addEventListener('click', function () {
-      unlockVideo().then(function () {
-        showUI('ui-scan');
+
+    /* ═══════════════════════════════════════════════════════════════
+       BUTTON WIRING
+       ═══════════════════════════════════════════════════════════════ */
+    Video.init(document.getElementById('valley-vid'));
+
+    document.getElementById('btn-start').addEventListener('click', function () {
+      // First gesture: unlock video AND start AR
+      Video.unlock().then(function () {
+        UI.show('scan');
         startAR();
       });
     });
 
-    document.getElementById('detected-cta').addEventListener('click', function () {
-      showUI('ui-valley');
-      safePlay();
+    document.getElementById('btn-detected').addEventListener('click', function () {
+      videoPlane.setAttribute('visible', true);
+      UI.show('valley');
+      Video.play();
     });
 
     document.getElementById('ui-valley').addEventListener('click', function () {
-      safePause();
+      Video.pause();
       videoPlane.setAttribute('visible', false);
-      showUI('ui-cards');
+      UI.show('cards');
       showCard(0);
     });
 
     document.getElementById('ui-cards').addEventListener('click', function (e) {
-      if (e.target.closest('#restart-btn')) { return; }
+      if (e.target.closest('#btn-restart')) { return; }
       if (cardIdx < CARDS.length - 1) { showCard(cardIdx + 1); }
-      else { showUI('ui-community'); }
+      else { UI.show('community'); }
     });
 
-    document.getElementById('join-btn').addEventListener('click', function () {
+    document.getElementById('btn-join').addEventListener('click', function () {
       window.open('https://www.cerveceriadezarra.es', '_blank', 'noopener');
     });
 
-    document.getElementById('skip-btn').addEventListener('click', restart);
-    document.getElementById('restart-btn').addEventListener('click', restart);
+    document.getElementById('btn-skip').addEventListener('click', restart);
+    document.getElementById('btn-restart').addEventListener('click', restart);
 
     function restart() {
-      safePause();
+      Video.pause();
       videoPlane.setAttribute('visible', false);
       cardIdx = 0;
       showCard(0);
-      showUI('ui-scan');
+      UI.show('scan');
     }
 
-    /* ── HTTPS GUARD ─────────────────────────────────── */
+
+    /* ═══════════════════════════════════════════════════════════════
+       HTTPS GUARD
+       ═══════════════════════════════════════════════════════════════ */
     if (
       location.protocol !== 'https:' &&
       location.hostname  !== 'localhost' &&
       location.hostname  !== '127.0.0.1'
     ) {
       var warn = document.createElement('div');
-      warn.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:.6rem 1rem;background:#7a2418;color:#fff;font:600 .75rem system-ui;z-index:9999;text-align:center;letter-spacing:.06em;';
+      warn.style.cssText =
+        'position:fixed;top:0;left:0;right:0;padding:.6rem 1rem;background:#7a2418;color:#fff;font:600 .75rem system-ui;z-index:9999;text-align:center;letter-spacing:.06em';
       warn.textContent = 'WebAR needs HTTPS — open this page over https:// or localhost.';
       document.body.appendChild(warn);
     }
